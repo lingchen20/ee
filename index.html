@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>浮生入梦</title>
+    
+    <!-- PWA 相关元数据 -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="浮生入梦">
+    <link rel="apple-touch-icon" href="https://i.postimg.cc/sftBGdw2/1778555381427.png">
+    <!-- 安卓 Chrome 状态栏颜色 -->
+    <meta name="theme-color" content="#ffffff">
+
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.2/dist/dexie.min.js"></script>
+    <style>
+        @font-face { font-family: 'bulangni'; src: url('https://files.catbx.moe/yzfk0h.ttf') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
+        
+        /* 根主题变量 */
+        :root { --secondary-bg: #ffffff; --border-color: #d2d8d8; --text-primary: #2a3333; --text-secondary: #7a8b8b; --accent-color: #345e5c; }
+        
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body { font-family: 'bulangni', "PingFang SC", "Microsoft YaHei", serif; background-color: #eef2f1; -webkit-tap-highlight-color: transparent;}
+        
+        #phone-screen { width: 100%; height: 100%; position: relative; overflow: hidden; display: flex; flex-direction: column; background-color: #000; }
+        
+        .header { padding-top: calc(15px + env(safe-area-inset-top)); position: relative; z-index: 15; flex-shrink: 0; padding-bottom: 15px; padding-left: 20px; padding-right: 20px; background-color: rgba(238, 242, 241, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .header .header-actions { display: flex; align-items: center; gap: 15px; }
+        .header .back-btn, .header .action-btn { font-size: 24px; cursor: pointer; color: var(--accent-color); display: flex; align-items: center; justify-content: center; }
+        .header .action-btn { font-size: 18px; font-weight: 600; }
+        .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
+        
+        .screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; background-color: #eef2f1;}
+        .screen.active { opacity: 1; visibility: visible; z-index: 1; }
+        
+        /* 桌面 */
+        #home-screen { justify-content: flex-start; align-items: center; padding: 20px; padding-top: calc(80px + env(safe-area-inset-top)); box-sizing: border-box; background-size: cover; background-position: center; }
+        #clock-container { text-align: center; color: white; text-shadow: 0 3px 8px rgba(0,0,0,0.6); margin-bottom: 20px; }
+        #main-time { font-size: 80px; font-weight: 200; font-family: sans-serif; letter-spacing: 2px;}
+        #main-date { font-size: 18px; font-weight: 500; margin-top: 5px;}
+        #app-grid { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; padding: 20px; margin-bottom: calc(30px + env(safe-area-inset-bottom));}
+        .app-row { display: flex; justify-content: center; gap: 25px; width: 100%; }
+        .app-icon { display: flex; flex-direction: column; align-items: center; cursor: pointer; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.7); font-size: 15px; font-weight: 500; letter-spacing: 1px;}
+        .app-icon .icon-bg { width: 60px; height: 60px; border-radius: 16px; background-color: var(--secondary-bg); display: flex; justify-content: center; align-items: center; margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid rgba(255,255,255,0.2);}
+        .app-icon .icon-bg img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* 通用列表与表单 */
+        .list-container, .form-container { padding: 20px; overflow-y: auto; flex-grow: 1; display:flex; flex-direction: column; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-secondary); font-size: 14px;}
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 15px; box-sizing: border-box; background: #fff; outline: none;}
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--accent-color); }
+        .form-group textarea { min-height: 80px; resize: vertical; line-height: 1.5;}
+        .form-button { width: 100%; padding: 14px; background-color: var(--accent-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; letter-spacing: 2px;}
+        .form-button-secondary { background-color: #fff; color: var(--accent-color); border: 1px solid var(--accent-color); }
+        
+        /* 角色列表 */
+        #chat-list { flex-grow: 1; overflow-y: auto; background-color: #fff; padding-bottom: env(safe-area-inset-bottom);}
+        .chat-list-item { display: flex; align-items: center; padding: 16px 20px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .chat-list-item:hover { background-color: #f7f9f9; }
+        .chat-list-item .avatar { width: 52px; height: 52px; border-radius: 50%; margin-right: 15px; object-fit: cover; border: 1px solid #eee;}
+        .chat-list-item .info { flex-grow: 1; overflow: hidden; }
+        .chat-list-item .name { font-weight: 600; font-size: 16px; color: var(--text-primary); margin-bottom: 6px; display: block; letter-spacing: 1px;}
+        .chat-list-item .last-msg { font-size: 14px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* 剧情界面 */
+        #chat-messages { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+        .message-wrapper { display: flex; flex-direction: column; position: relative; margin-bottom: 22px; max-width: 85%; }
+        .message-wrapper.ai { align-self: flex-start; align-items: flex-start; }
+        .message-wrapper.user { align-self: flex-end; align-items: flex-end; }
+        .message-bubble { display: flex; align-items: flex-start; gap: 12px; max-width: 100%; }
+        .message-bubble.user { flex-direction: row-reverse; }
+        
+        /* 包含头像和名字的垂直容器 */
+        .message-bubble .avatar-container { display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; width: 50px; }
+        .message-bubble .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 3px rgba(0,0,0,0.1);}
+        .message-bubble .avatar-name { font-size: 11px; color: var(--text-secondary); text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; line-height: 1;}
+        
+        /* 气泡样式 */
+        .message-bubble .content { position: relative; font-size: var(--chat-font-size, 16px); padding: 12px 16px; line-height: 1.7; word-break: break-word; letter-spacing: 0.5px;}
+        .message-bubble.user .content { background-color: #dae6e5; color: #1a2222; border-radius: 12px 2px 12px 12px; }
+        .message-bubble.ai .content { background-color: #ffffff; color: #1a2222; border-radius: 2px 12px 12px 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.03);}
+        
+        .message-bubble.ai + .timestamp { position: absolute; bottom: -18px; right: 5px; font-size: 11px; color: #999; }
+        .message-bubble.user + .timestamp { position: absolute; bottom: -18px; left: 5px; font-size: 11px; color: #999; }
+        #typing-indicator { align-self: flex-start; display: none; margin: 0 10px 10px; color: var(--accent-color); font-size: 14px; font-style: italic;}
+        
+        /* 底部输入框区域 */
+        #chat-input-area { flex-shrink: 0; padding: 10px 15px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); background-color: rgba(238, 242, 241, 0.95); border-top: 1px solid var(--border-color); display: flex; align-items: flex-end; gap: 10px; }
+        #chat-input { flex-grow: 1; border: 1px solid #ccc; padding: 12px 15px; border-radius: 20px; background-color: #fff; font-size: 15px; max-height: 120px; resize: none; outline: none; line-height: 1.5;}
+        #chat-input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(52, 94, 92, 0.1); }
+        #input-actions-wrapper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        
+        .action-button { border: none; color: white; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 15px; padding: 0 18px; height: 42px; letter-spacing: 1px;}
+        #send-btn { background-color: var(--accent-color); }
+        #wait-reply-btn { background-color: #fff; border: 1px solid #ccc; padding: 0 12px; display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 20px;}
+        #wait-reply-btn img { height: 22px; }
+        #regenerate-btn { background: none; border: none; font-size: 26px; color: var(--accent-color); cursor: pointer; padding: 0 5px; margin-bottom: 8px; transition: transform 0.3s ease; }
+        
+        /* 万象录与通用条目 */
+        .entry-card { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.02);}
+        .entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 10px;}
+        .delete-entry-btn { color: #ff4d4f; font-size: 22px; cursor: pointer; line-height: 1; font-weight: bold; padding: 0 5px;}
+        
+        /* 滑动开关 */
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.2);}
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* 模态框 */
+        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(3px);}
+        .modal.visible { display: flex; }
+        .modal-content { width: 90%; max-height: 90%; background-color: #fff; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2);}
+        .modal-header { padding: 18px; font-weight: 600; border-bottom: 1px solid var(--border-color); text-align: center; display: flex; justify-content: space-between; align-items: center; font-size: 17px; background: #fcfcfc;}
+        .modal-body { padding: 18px; overflow-y: auto; background: #fdfdfd;}
+        .modal-footer { padding: 15px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; gap: 12px; background: #fff; padding-bottom: calc(15px + env(safe-area-inset-bottom));}
+        .modal-footer button { flex: 1; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 16px; border: none; font-weight: 600; letter-spacing: 1px;}
+        .modal-footer .save { background-color: var(--accent-color); color: white; }
+        .modal-footer .cancel { background-color: #f0f2f1; color: #555; }
+        
+        .avatar-upload { display: flex; align-items: center; gap: 15px; }
+        .avatar-upload img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background-color: #eee; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1);}
+        .avatar-upload button { padding: 8px 14px; border: 1px solid var(--border-color); background-color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; color: var(--text-primary);}
+        .avatar-upload input[type="file"] { display: none; }
+        
+        /* 列表项通用 */
+        .list-item { padding: 16px 20px; cursor: pointer; border-bottom: 1px solid var(--border-color); background: #fff;}
+        .list-item:hover { background-color: #f7f9f9; }
+        .list-item .item-title { font-weight: 600; font-size: 16px; margin-bottom: 6px; color: var(--text-primary); letter-spacing: 1px;}
+        .list-item .item-content { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* 身世库网格 */
+        #persona-library-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 10px; }
+        .persona-preset-item { aspect-ratio: 1 / 1; border-radius: 12px; background-size: cover; background-position: center; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        
+        /* 自定义Alert弹窗 */
+        #custom-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.2s ease-in-out; backdrop-filter: blur(3px);}
+        #custom-modal-overlay.visible { display: flex; opacity: 1; }
+        #custom-modal { background-color: #fff; width: 290px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; transform: scale(0.95); transition: transform 0.2s ease-in-out; overflow: hidden;}
+        #custom-modal-overlay.visible #custom-modal { transform: scale(1); }
+        .custom-modal-header { padding: 18px; font-size: 18px; font-weight: 600; text-align: center; background: #fcfcfc; border-bottom: 1px solid #f0f0f0;}
+        .custom-modal-body { padding: 20px 18px; text-align: center; font-size: 15px; color: #444; line-height: 1.6; }
+        .custom-modal-footer { border-top: 1px solid #f0f0f0; display: flex; }
+        .custom-modal-footer button { flex: 1; background: none; border: none; padding: 14px; font-size: 16px; cursor: pointer; color: var(--accent-color); font-weight: 500;}
+        .custom-modal-footer button:first-child { border-right: 1px solid #f0f0f0; }
+        .custom-modal-footer .confirm-btn { font-weight: 600; }
+        .custom-modal-footer .confirm-btn.btn-danger { color: #ff4d4f; }
+        
+        /* 菜单弹窗样式复用 */
+        #message-actions-modal .custom-modal-footer, #preset-actions-modal .custom-modal-footer { flex-direction: column; }
+        #message-actions-modal .custom-modal-footer button, #preset-actions-modal .custom-modal-footer button { width: 100%; border: none; border-bottom: 1px solid #f0f0f0; padding: 16px; font-size: 16px; }
+        #message-actions-modal .custom-modal-footer button:last-child, #preset-actions-modal .custom-modal-footer button:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div id="phone-screen">
+        <!-- 主境 (桌面) -->
+        <div id="home-screen" class="screen active">
+            <div id="clock-container"><div id="main-time">12:00</div><div id="main-date">初一</div></div>
+            <div id="app-grid">
+                <div class="app-row">
+                    <div class="app-icon" onclick="window.showScreen('world-book-screen')"><div class="icon-bg"><img src="https://i.postimg.cc/mZ0vV6tT/IMG-6907.jpg" alt="万象录"></div><span class="label">万象录</span></div>
+                    <div class="app-icon" onclick="window.showScreen('chat-list-screen')"><div class="icon-bg"><img src="https://i.postimg.cc/gJ7Dz5fj/IMG-6906.jpg" alt="红尘羁绊"></div><span class="label">红尘羁绊</span></div>
+                </div>
+                <div class="app-row">
+                    <div class="app-icon" onclick="window.showScreen('api-settings-screen')"><div class="icon-bg"><img src="https://i.postimg.cc/RhnTNdBR/IMG-6908.jpg" alt="天道法则"></div><span class="label">天道法则</span></div>
+                    <div class="app-icon" onclick="window.showScreen('wallpaper-screen')"><div class="icon-bg"><img src="https://i.postimg.cc/WbgQy6kg/IMG-6909.jpg" alt="幻境绘卷"></div><span class="label">幻境绘卷</span></div>
+                    <div class="app-icon" onclick="window.showScreen('font-settings-screen')"><div class="icon-bg"><img src="https://files.catbox.moe/j1kn1a.jpeg" alt="翰墨丹青"></div><span class="label">翰墨丹青</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 红尘羁绊 (角色列表) -->
+        <div id="chat-list-screen" class="screen">
+            <div class="header">
+                <span class="back-btn" onclick="window.showScreen('home-screen')">‹</span>
+                <span>红尘羁绊</span>
+                <div class="header-actions">
+                    <span class="action-btn" id="add-chat-btn" title="寻访新缘">+</span>
+                </div>
+            </div>
+            <div id="chat-list"></div>
+        </div>
+
+        <!-- 剧情推演 (聊天界面) -->
+        <div id="chat-interface-screen" class="screen">
+            <div class="header">
+                <span class="back-btn" id="back-to-list-btn">‹</span>
+                <span id="chat-header-title">剧情演绎</span>
+                <div class="header-actions">
+                    <span class="action-btn" id="chat-settings-btn" title="命格推演">☰</span>
+                </div>
+            </div>
+            <div id="chat-messages"><div id="typing-indicator">心念转动中...</div></div>
+            <div id="chat-input-area">
+                <button id="regenerate-btn" title="逆转时空 (重新回复)">⟲</button>
+                <textarea id="chat-input" rows="1" placeholder="唯此间江湖年少偏爱纵横天下"></textarea>
+                <div id="input-actions-wrapper">
+                    <button id="wait-reply-btn" title="等待推演"><img src="https://i.postimg.cc/2SwjsfZQ/IMG-6913.gif" alt="等待"></button>
+                    <button id="send-btn" class="action-button">落笔</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 万象录 (世界书列表) -->
+        <div id="world-book-screen" class="screen">
+            <div class="header"><span class="back-btn" onclick="window.showScreen('home-screen')">‹</span><span>万象录</span><span class="action-btn" id="add-world-book-btn">+</span></div>
+            <div id="world-book-list" class="list-container" style="padding: 0; background: #eef2f1;"></div>
+        </div>
+        
+        <!-- 万象残卷编辑 (世界书条目编辑) -->
+        <div id="world-book-editor-screen" class="screen">
+            <div class="header"><span class="back-btn" onclick="window.showScreen('world-book-screen')">‹</span><span id="world-book-editor-title">编纂万象</span><span class="save-btn" id="save-world-book-btn">封卷</span></div>
+            <div class="form-container" style="padding-bottom: 40px;">
+                <div class="form-group"><label>卷名</label><input type="text" id="world-book-name-input" placeholder="输入万象录名称，如：修仙世界设定..."></div>
+                <div id="entries-container"></div>
+                <button class="form-button-secondary form-button" id="add-entry-btn" style="border: 1px dashed var(--accent-color); margin-top: 5px; padding: 12px; background: transparent;">[+] 录入新残卷</button>
+            </div>
+        </div>
+
+        <!-- 天道法则 (API设置) -->
+        <div id="api-settings-screen" class="screen">
+            <div class="header"><span class="back-btn" onclick="window.showScreen('home-screen')">‹</span><span>天道法则</span><span style="width: 30px;"></span></div>
+            <div class="form-container">
+                <div class="form-group"><label>灵枢法阵 (反代地址)</label><input type="text" id="proxy-url" placeholder="例如: https://api.openai.com"></div>
+                <div class="form-group"><label>天道信物 (API Key)</label><input type="password" id="api-key" placeholder="sk-..."></div>
+                <div class="form-group"><label>灵智化身 (模型)</label><select id="model-select"></select></div>
+                <button class="form-button" id="fetch-models-btn">感知天地化身</button>
+                <hr style="margin:25px 0; opacity:.15;">
+                <button class="form-button" id="save-api-settings-btn">铭刻法则</button>
+                <hr style="margin:25px 0; opacity:.15;">
+                <button class="form-button-secondary form-button" id="export-data-btn" style="margin-top: 0;">抽取本源 (导出数据)</button>
+                <button class="form-button-secondary form-button" id="import-btn">重塑本源 (导入数据)</button>
+                <input id="import-data-input" type="file" accept="application/json" hidden>
+            </div>
+        </div>
+
+        <!-- 幻境绘卷 (壁纸与全局CSS) -->
+        <div id="wallpaper-screen" class="screen">
+            <div class="header"><span class="back-btn" onclick="window.showScreen('home-screen')">‹</span><span>幻境绘卷</span><span style="width: 30px;"></span></div>
+            <div class="form-container">
+                <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                    <div id="wallpaper-preview" style="width: 180px; height: 320px; border: 2px dashed #aaa; background-size: cover; background-position: center; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #888; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">点击下方寻绘卷</div>
+                    <button class="form-button" onclick="document.getElementById('wallpaper-upload-input').click();" style="margin-top:0;">展开绘卷 (更换背景)</button>
+                    <input type="file" id="wallpaper-upload-input" accept="image/*" hidden>
+                    <button class="form-button" id="save-wallpaper-btn">布下幻境 (保存背景)</button>
+                </div>
+                <hr style="width: 100%; margin: 35px 0 25px 0; border: none; border-top: 1px dashed var(--border-color);">
+                <div class="form-group" style="width: 100%; margin-bottom: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="margin: 0;">天地脉络 (自定义全局CSS)</label>
+                        <span id="manage-css-presets-btn" style="color: var(--accent-color); cursor: pointer; font-size: 14px; font-weight: bold; padding: 0 5px;">预设管理</span>
+                    </div>
+                    <textarea id="global-css-input" rows="8" placeholder="在此输入自定义CSS代码...&#10;例如：&#10;body { background: #333; }&#10;.message-bubble.user .content { background: #ffcccc; }" style="font-family: monospace; font-size: 13px; background: #fdfdfd; margin-bottom: 10px;"></textarea>
+                    
+                    <div style="display: flex; gap: 12px; margin-bottom: 10px;">
+                        <button class="form-button" id="save-global-css-btn" style="margin-top:0;">应用当前脉络</button>
+                        <button class="form-button-secondary form-button" id="save-as-preset-btn" style="margin-top:0;">存为新卷</button>
+                    </div>
+                    <button class="form-button-secondary form-button" id="reset-global-css-btn" style="color: #ff4d4f; border-color: #ff4d4f;">散去灵力 (清除全局CSS)</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 翰墨丹青 (字体) -->
+        <div id="font-settings-screen" class="screen">
+            <div class="header"><span class="back-btn" onclick="window.showScreen('home-screen')">‹</span><span>翰墨丹青</span><span style="width: 30px;"></span></div>
+            <div class="form-container">
+                <div class="form-group"><label>笔墨灵源 (.ttf, .otf)</label><input type="text" id="font-url-input" placeholder="输入字体链接..."></div>
+                <div class="form-group"><label>笔迹观视</label><div id="font-preview" style="padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background-color: #fff;"><p style="font-size: 20px; margin: 0 0 10px 0;">山有木兮木有枝</p><p style="margin: 0; color: #666;">心悦君兮君不知。</p></div></div>
+                <button class="form-button" id="save-font-btn">更换笔迹</button>
+                <button class="form-button form-button-secondary" id="reset-font-btn">化凡 (恢复默认)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 命格推演 (角色设定) -->
+    <div id="chat-settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span>命格推演</span></div>
+            <div class="modal-body">
+                <div class="form-group"><label>名讳 (角色名)</label><input type="text" id="chat-name-input"></div>
+                <div class="form-group"><label>容貌 (角色头像)</label><div class="avatar-upload"><img id="ai-avatar-preview"><button onclick="document.getElementById('ai-avatar-input').click()">描绘容颜</button><input type="file" id="ai-avatar-input" accept="image/*"></div></div>
+                <div class="form-group"><label>性情与过往 (AI人设)</label><textarea id="ai-persona" rows="4" placeholder="惊绝天下的少年符师，素衣胜雪，下笔间乾坤倒转。表面温润如玉，实则袖藏杀局。最讲究‘赢要洒脱，输要风度’。若是不慎落败，定是今日出门没看黄历，或是极品符纸带得少了些..."></textarea></div>
+                <hr style="opacity: 0.1; margin: 25px 0;">
+                
+                <!-- 新增：吾之名讳 -->
+                <div class="form-group">
+                    <label>吾之名讳 (我的名字)</label>
+                    <input type="text" id="my-name-input" placeholder="输入你在当前剧情中的称呼...">
+                </div>
+                
+                <div class="form-group"><label>吾之容貌 (我的头像)</label><div class="avatar-upload"><img id="my-avatar-preview"><button onclick="document.getElementById('my-avatar-input').click()">描绘容颜</button><button id="open-persona-library-btn" style="margin-left:auto;">身世库</button><input type="file" id="my-avatar-input" accept="image/*"></div></div>
+                <div class="form-group"><label>吾之宿命 (我的设定)</label><textarea id="my-persona" rows="4" placeholder="初入江湖的剑修，纵横肆意，意气飞扬。凭掌中三尺寒霜问鼎天下大道，纵横四海只求一败，誓要用这手中长剑，斩尽世间一切不平事..."></textarea></div>
+                <div class="form-group"><label>引灵入卷 (关联万象录)</label><div id="world-book-checkboxes-container" style="background:#fff; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); max-height: 120px; overflow-y:auto;"></div></div>
+                <div class="form-group"><label>神识广度 (记忆条数)</label><input type="number" id="max-memory" value="15"></div>
+                <div class="form-group"><label>此方洞天 (聊天背景)</label><div class="avatar-upload"><button onclick="document.getElementById('bg-input').click()">布下幻景</button><button id="remove-bg-btn" style="display:none; color:#ff4d4f; border-color:#ff4d4f;">破除</button><input type="file" id="bg-input" accept="image/*" hidden></div><img id="bg-preview" style="max-width: 100px; max-height: 100px; margin-top: 15px; display: none; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"></div>
+                <hr style="margin: 30px 0 20px 0; border: none; border-top: 1px solid #eee;"><button class="form-button form-button-secondary" id="clear-chat-btn" style="color: #ff4d4f; border-color: #ff4d4f;">斩断红尘 (清空记录)</button>
+            </div>
+            <div class="modal-footer"><button class="cancel" id="cancel-chat-settings-btn">放弃</button><button class="save" id="save-chat-settings-btn">凝铸命格</button></div>
+        </div>
+    </div>
+
+    <!-- 玩家人设库 -->
+    <div id="persona-library-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span>吾之千万身世</span><button id="add-persona-preset-btn" style="background:none; border:none; color:var(--accent-color); font-weight:bold; font-size:16px; cursor: pointer;">添魂</button></div>
+            <div class="modal-body" style="background: #eef2f1;"><div id="persona-library-grid"></div></div>
+            <div class="modal-footer"><button class="cancel" id="close-persona-library-btn" style="width:100%;">合卷</button></div>
+        </div>
+    </div>
+    
+    <!-- 玩家人设编辑 -->
+    <div id="persona-editor-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span id="persona-editor-title">凝练新魂</span></div>
+            <div class="modal-body">
+                <div class="form-group"><label>容貌 (身世头像)</label><div class="avatar-upload"><img id="preset-avatar-preview"><button onclick="document.getElementById('preset-avatar-input').click()">上传</button><input type="file" id="preset-avatar-input" accept="image/*"></div></div>
+                <div class="form-group"><label>名讳 (身世称呼)</label><input type="text" id="preset-name-input" placeholder="例如：李长生 / 魔教妖女..."></div>
+                <div class="form-group"><label>设定 (身世背景)</label><textarea id="preset-persona-input" rows="5" placeholder="在此输入你的身份、性格、背景..."></textarea></div>
+            </div>
+            <div class="modal-footer"><button class="cancel" id="cancel-persona-editor-btn">散去</button><button class="save" id="save-persona-preset-btn">塑成</button></div>
+        </div>
+    </div>
+
+    <!-- CSS 预设管理库 -->
+    <div id="css-preset-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span>脉络预设卷宗</span></div>
+            <div class="modal-body" style="background: #eef2f1;">
+                <div id="css-preset-list" class="list-container" style="padding: 0;"></div>
+            </div>
+            <div class="modal-footer"><button class="cancel" id="close-css-preset-btn" style="width:100%;">合卷</button></div>
+        </div>
+    </div>
+
+    <!-- 自定义弹窗 -->
+    <div id="custom-modal-overlay">
+        <div id="custom-modal">
+            <div class="custom-modal-header" id="custom-modal-title">天音</div>
+            <div class="custom-modal-body" id="custom-modal-body"></div>
+            <div class="custom-modal-footer"><button id="custom-modal-cancel">拒绝</button><button id="custom-modal-confirm" class="confirm-btn">允诺</button></div>
+        </div>
+    </div>
+
+    <!-- 菜单 -->
+    <div id="preset-actions-modal" class="modal">
+        <div id="custom-modal" style="width: 250px;">
+            <div class="custom-modal-footer" style="flex-direction: column;">
+                <button id="preset-action-edit">修改命理</button>
+                <button id="preset-action-delete" style="color:#ff4d4f;">散去此魂</button>
+                <button id="preset-action-cancel" style="color:#666;">罢了</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-actions-modal" class="modal">
+        <div id="custom-modal" style="width: 250px;">
+            <div class="custom-modal-footer">
+                <button id="edit-message-btn">改写此景</button>
+                <button id="copy-message-btn">拓印真言</button>
+                <button id="delete-message-btn" style="color:#ff4d4f;">抹除印记</button>
+                <button id="cancel-message-action-btn" style="color:#666;">罢了</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// PWA Service Worker 注册
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('天道运行中 (Service Worker 注册成功)'))
+            .catch(err => console.log('天机受阻 (Service Worker 注册失败)', err));
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 数据库配置
+    const db = new Dexie('AncientRPG_Offline_v3');
+    
+    db.version(1).stores({ 
+        chats: '&id', 
+        apiConfig: '&id', 
+        globalSettings: '&id', 
+        worldBooks: '&id, name',
+        personaPresets: '&id'
+    });
+
+    let state = { chats: {}, activeChatId: null, globalSettings: {}, apiConfig: {}, worldBooks:[], personaPresets:[] };
+    const defaultAvatar = 'https://i.postimg.cc/PxZrFFFL/o-o-1.jpg';
+    let newWallpaperBase64 = null;
+    let editingWorldBookId = null;
+    let editingPersonaPresetId = null;
+    let activeMessageTimestamp = null;
+    
+    let modalResolve;
+    const modalOverlay = document.getElementById('custom-modal-overlay');
+    const modalTitle = document.getElementById('custom-modal-title');
+    const modalBody = document.getElementById('custom-modal-body');
+    const modalConfirmBtn = document.getElementById('custom-modal-confirm');
+    const modalCancelBtn = document.getElementById('custom-modal-cancel');
+
+    // ==========================================================
+    // 全局方法与工具
+    // ==========================================================
+    window.showScreen = function(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        const screen = document.getElementById(screenId);
+        if (screen) screen.classList.add('active');
+        
+        if (screenId === 'chat-list-screen') renderChatList();
+        if (screenId === 'api-settings-screen') renderApiSettings();
+        if (screenId === 'world-book-screen') renderWorldBookScreen();
+        if (screenId === 'font-settings-screen') {
+            document.getElementById('font-url-input').value = state.globalSettings.fontUrl || '';
+        }
+        if (screenId === 'wallpaper-screen') {
+            renderWallpaperScreen();
+            document.getElementById('global-css-input').value = state.globalSettings.globalCss || '';
+        }
+    };
+
+    function showCustomModal() { modalOverlay.classList.add('visible'); }
+    function hideCustomModal() { modalOverlay.classList.remove('visible'); modalConfirmBtn.classList.remove('btn-danger'); if(modalResolve) modalResolve(null); }
+
+    function showCustomConfirm(title, message, options = {}) {
+        return new Promise(resolve => {
+            modalResolve = resolve;
+            modalTitle.textContent = title;
+            modalBody.innerHTML = `<p>${message}</p>`;
+            modalCancelBtn.style.display = 'block';
+            modalConfirmBtn.textContent = '允诺';
+            if (options.confirmButtonClass) modalConfirmBtn.classList.add(options.confirmButtonClass);
+            modalConfirmBtn.onclick = () => { resolve(true); hideCustomModal(); };
+            modalCancelBtn.onclick = () => { resolve(false); hideCustomModal(); };
+            showCustomModal();
+        });
+    }
+
+    function showCustomAlert(title, message) {
+        return new Promise(resolve => {
+            modalResolve = resolve;
+            modalTitle.textContent = title;
+            modalBody.innerHTML = `<p style="text-align: left; white-space: pre-wrap;">${message}</p>`;
+            modalCancelBtn.style.display = 'none';
+            modalConfirmBtn.textContent = '知晓';
+            modalConfirmBtn.onclick = () => { resolve(true); hideCustomModal(); };
+            showCustomModal();
+        });
+    }
+
+    function showCustomPrompt(title, placeholder, initialValue = '', type = 'text') {
+        return new Promise(resolve => {
+            modalResolve = resolve;
+            modalTitle.textContent = title;
+            const inputId = 'custom-prompt-input';
+            const inputHtml = type === 'textarea' 
+                ? `<textarea id="${inputId}" placeholder="${placeholder}" rows="6" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; box-sizing: border-box; resize: vertical; outline:none;">${initialValue}</textarea>`
+                : `<input type="${type}" id="${inputId}" placeholder="${placeholder}" value="${initialValue}" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; box-sizing: border-box; outline:none;">`;
+            modalBody.innerHTML = inputHtml;
+            const input = document.getElementById(inputId);
+            modalConfirmBtn.onclick = () => { resolve(input.value); hideCustomModal(); };
+            modalCancelBtn.onclick = () => { resolve(null); hideCustomModal(); };
+            showCustomModal();
+            setTimeout(() => input.focus(), 100);
+        });
+    }
+
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('main-time').textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const days =['日','一','二','三','四','五','六'];
+        document.getElementById('main-date').textContent = `${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}`;
+    }
+
+    function parseAiResponse(content) {
+        const trimmed = content.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try { const parsed = JSON.parse(trimmed); if (Array.isArray(parsed)) return parsed; } catch (e) {}
+        }
+        return content.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('```'));
+    }
+
+    // ==========================================================
+    // 自定义动态法则 (全局 CSS 应用)
+    // ==========================================================
+    function applyGlobalCss(cssText) {
+        let styleTag = document.getElementById('dynamic-global-css');
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = 'dynamic-global-css';
+            document.head.appendChild(styleTag);
+        }
+        styleTag.innerHTML = cssText || '';
+    }
+
+    function applyCustomFont(fontUrl) {
+        let style = document.getElementById('dynamic-font-style');
+        if (!style) { style = document.createElement('style'); style.id = 'dynamic-font-style'; document.head.appendChild(style); }
+        if (!fontUrl) { style.innerHTML = ''; document.getElementById('font-preview').style.fontFamily = ''; return; }
+        style.innerHTML = `@font-face { font-family: 'custom-user-font'; src: url('${fontUrl}'); font-display: swap; } body { font-family: 'custom-user-font', 'bulangni', serif; }`;
+        document.getElementById('font-preview').style.fontFamily = `'custom-user-font', 'bulangni', serif`;
+    }
+
+    // ==========================================================
+    // AI 剧情生成逻辑
+    // ==========================================================
+    async function triggerAiResponse() {
+        if (!state.activeChatId) return;
+        const chat = state.chats[state.activeChatId];
+        document.getElementById('typing-indicator').style.display = 'block';
+        
+        const { proxyUrl, apiKey, model } = state.apiConfig;
+        if (!proxyUrl || !apiKey || !model) {
+            alert('天道法则缺失：请先在天道法则中配置反代地址、密钥并选择模型。');
+            document.getElementById('typing-indicator').style.display = 'none';
+            return;
+        }
+
+        const maxMemory = parseInt(chat.settings.maxMemory) || 15;
+        const historySlice = chat.history.slice(-maxMemory);
+
+        let worldBookContent = '';
+        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+            const recentTextForKeywordSearch = historySlice.map(msg => msg.content).join('\n');
+            const activeEntries =[];
+
+            chat.settings.linkedWorldBookIds.forEach(bookId => {
+                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                if (worldBook && worldBook.entries) {
+                    worldBook.entries.forEach(entry => {
+                        if (!entry.enabled || !entry.content) return; 
+                        
+                        let shouldInclude = false;
+                        if (!entry.keywords) {
+                            shouldInclude = true;
+                        } else {
+                            const keywordsArray = entry.keywords.split(',').map(k => k.trim()).filter(k => k);
+                            shouldInclude = keywordsArray.some(kw => recentTextForKeywordSearch.includes(kw));
+                        }
+
+                        if (shouldInclude) {
+                            activeEntries.push(`[${entry.note || '设定残卷'}]: ${entry.content}`);
+                        }
+                    });
+                }
+            });
+
+            if (activeEntries.length > 0) {
+                worldBookContent = `\n\n## 天道卷宗 (核心背景设定)\n${activeEntries.join('\n\n')}\n`;
+            }
+        }
+
+        const systemPrompt = `你现在身处一个古风文字剧情世界中，扮演名为"${chat.name}"的角色，与用户进行沉浸式的剧情演绎。
+
+# 剧情设定信息${worldBookContent}
+
+# 你的角色设定：
+${chat.settings.aiPersona}
+
+# 用户的角色设定：
+【姓名】：${chat.settings.myName || '我'}
+【设定】：${chat.settings.myPersona}
+
+# 剧情演绎核心规则：
+1. **小说体格式（严格遵守）**：你的回复必须像古典文学或仙侠武侠小说一样。
+   - 角色的对话内容**必须用双引号“”括起来**。
+   - 角色的动作、神态、心理活动以及环境描写等，**必须写在双引号外面**。
+   - 所有在引号之外的文字都将被视为动作/环境描写。
+   - 你可以自由地将对话穿插在描写的任何位置，实现自然分段，但包裹对话的引号前不能有其他符号。
+   - 示例：微风拂过，他轻轻抿了一口茶，眼中闪过一丝复杂的情绪“公子此言差矣，天下大势，岂是你我能左右的？”
+2. **环境与交互**：当前是真实的古风剧情互动场景，请使用优美、带有古风韵味的文字，细腻刻画场景氛围，并在描写和对话中自然称呼用户设定的姓名。
+3. **禁止出戏**：绝不能透露你是AI。严禁出现任何诸如“发消息”、“在线”、“视频”、“群聊”等现代网络词汇。
+4. **推动剧情**：根据用户的动作或言语，做出符合人物性格的反应，并主动引发事件或抛出话题来推进剧情。
+5. **输出格式**：你的回复必须是一个严格的JSON数组格式，且**数组中只能包含一个唯一的字符串元素**。 - **严禁**将剧情拆分成多个数组元素。 - **自然分段**：请在这个唯一的字符串内部，使用两个换行符（\n\n）来进行自然分段和描写。 - 正确示例格式 ：她将长剑收入鞘中，发出一声剑鸣“既然你已决定，我便随你走一遭。”\n\n说罢，她转身向门外走去，那一抹红影在月光下显得格外孤寂。 
+
+请沉浸在角色中，根据下面的剧情发展历史，继续演绎。`;
+        
+        const messagesPayload = historySlice.map(msg => ({ role: msg.role, content: msg.content }));
+
+        try {
+            const response = await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ model: model, messages:[{ role: 'system', content: systemPrompt }, ...messagesPayload], temperature: 0.85, stream: false })
+            });
+            if (!response.ok) throw new Error(`天机蒙蔽: ${response.status}`);
+            const data = await response.json();
+            const messagesArray = parseAiResponse(data.choices[0].message.content); 
+            const fullContent = Array.isArray(messagesArray) ? messagesArray.join('\n\n') : messagesArray; 
+            if (fullContent) { 
+                const aiMessage = { role: 'assistant', content: String(fullContent), timestamp: Date.now() }; 
+                chat.history.push(aiMessage); 
+                await db.chats.put(chat); 
+                if (state.activeChatId === chat.id) appendMessage(aiMessage, chat); 
+            }
+        } catch (error) {
+            const errorMessage = { role: 'assistant', content: `[天道反噬，剧情推演失败: ${error.message}]`, timestamp: Date.now() };
+            chat.history.push(errorMessage);
+            await db.chats.put(chat);
+            appendMessage(errorMessage, chat);
+        } finally {
+            document.getElementById('typing-indicator').style.display = 'none';
+        }
+    }
+
+    async function regenerateResponse() {
+        if (!state.activeChatId) return;
+        const chat = state.chats[state.activeChatId];
+        if (!chat || chat.history.length === 0) return;
+
+        let deleted = false;
+        while (chat.history.length > 0 && chat.history[chat.history.length - 1].role === 'assistant') {
+            chat.history.pop();
+            deleted = true;
+        }
+        if (deleted) {
+            await db.chats.put(chat);
+            renderChatInterface(state.activeChatId);
+        }
+        triggerAiResponse();
+    }
+
+    // ==========================================================
+    // 渲染函数集
+    // ==========================================================
+    function renderChatList() {
+        const chatListEl = document.getElementById('chat-list');
+        chatListEl.innerHTML = '';
+        const allChats = Object.values(state.chats).sort((a, b) => (b.history.slice(-1)[0]?.timestamp || 0) - (a.history.slice(-1)[0]?.timestamp || 0));
+        
+        if (allChats.length === 0) {
+            chatListEl.innerHTML = '<p style="text-align:center; color: #888; margin-top: 50px;">点击右上角 "+" 寻访你的第一位有缘人</p>';
+            return;
+        }
+
+        allChats.forEach(chat => {
+            const item = document.createElement('div');
+            item.className = 'chat-list-item';
+            const lastMsg = chat.history.slice(-1)[0];
+            const maxLength = 18; let lastText = '未有交集...'; 
+            if (lastMsg) { 
+                const fullContent = String(lastMsg.content); 
+                lastText = fullContent.length > maxLength ? fullContent.substring(0, maxLength) + '...' : fullContent; 
+            }
+           
+            const lastTime = lastMsg ? formatTimestamp(lastMsg.timestamp) : '';
+
+            item.innerHTML = `
+                <img src="${chat.settings.aiAvatar || defaultAvatar}" class="avatar">
+                <div class="info">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span class="name" style="margin:0;">${chat.name}</span>
+                        <span style="font-size:10px; color:var(--text-secondary); opacity:0.7;">${lastTime}</span>
+                    </div>
+                    <div class="last-msg">${lastText}</div>
+                </div>`;
+
+            item.addEventListener('click', () => { state.activeChatId = chat.id; renderChatInterface(chat.id); window.showScreen('chat-interface-screen'); });
+            
+            let pressTimer;
+            const startPress = (e) => { e.preventDefault(); pressTimer = setTimeout(async () => {
+                const confirmed = await showCustomConfirm('斩断红尘', `确定要抹除与 "${chat.name}" 的所有因果羁绊吗？此操作不可逆。`, { confirmButtonClass: 'btn-danger' });
+                if (confirmed) { delete state.chats[chat.id]; await db.chats.delete(chat.id); renderChatList(); }
+            }, 500); };
+            const cancelPress = () => clearTimeout(pressTimer);
+            item.addEventListener('mousedown', startPress); item.addEventListener('mouseup', cancelPress); item.addEventListener('mouseleave', cancelPress);
+            item.addEventListener('touchstart', startPress, { passive: true }); item.addEventListener('touchend', cancelPress); item.addEventListener('touchmove', cancelPress);
+            
+            chatListEl.appendChild(item);
+        });
+    }
+
+    function formatTimestamp(ts) { 
+        const d = new Date(ts); const year = d.getFullYear(); const month = d.getMonth() + 1; const date = d.getDate(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); 
+        return `${year}年${month}月${date}日 ${hours}:${minutes}`; 
+    }
+
+    function createMessageElement(msg, chat) {
+        const isUser = msg.role === 'user';
+        const wrapper = document.createElement('div');
+        wrapper.className = `message-wrapper ${isUser ? 'user' : 'ai'}`;
+        
+        const bubble = document.createElement('div');
+        bubble.className = `message-bubble ${isUser ? 'user' : 'ai'}`;
+        bubble.dataset.timestamp = msg.timestamp;
+
+        const avatarSrc = isUser ? (chat.settings.myAvatar || defaultAvatar) : (chat.settings.aiAvatar || defaultAvatar);
+        // 读取专属的设定名字，如果没有就默认显示“我”
+        const displayName = isUser ? (chat.settings.myName || "我") : chat.name;
+        
+        const contentHtml = String(msg.content || '').replace(/\n/g, '<br>');
+        
+        bubble.innerHTML = `
+            <div class="avatar-container">
+                <img src="${avatarSrc}" class="avatar">
+                <span class="avatar-name">${displayName}</span>
+            </div>
+            <div class="content">${contentHtml}</div>
+        `;
+        
+        const timestampEl = document.createElement('span');
+        timestampEl.className = 'timestamp';
+        timestampEl.textContent = formatTimestamp(msg.timestamp);
+        
+        wrapper.appendChild(bubble);
+        wrapper.appendChild(timestampEl);
+
+        let pressTimer;
+        const startPress = (e) => { pressTimer = setTimeout(() => { activeMessageTimestamp = msg.timestamp; document.getElementById('message-actions-modal').classList.add('visible'); }, 500); };
+        const cancelPress = () => clearTimeout(pressTimer);
+        wrapper.addEventListener('mousedown', startPress); wrapper.addEventListener('mouseup', cancelPress); wrapper.addEventListener('mouseleave', cancelPress);
+        wrapper.addEventListener('touchstart', startPress, { passive: true }); wrapper.addEventListener('touchend', cancelPress); wrapper.addEventListener('touchmove', cancelPress);
+
+        return wrapper;
+    }
+
+    function appendMessage(msg, chat) {
+        const container = document.getElementById('chat-messages');
+        const typing = document.getElementById('typing-indicator');
+        container.insertBefore(createMessageElement(msg, chat), typing);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function renderChatInterface(chatId) {
+        const chat = state.chats[chatId];
+        if (!chat) return;
+        const container = document.getElementById('chat-messages');
+        const typing = document.getElementById('typing-indicator');
+        container.innerHTML = '';
+        container.appendChild(typing);
+
+        const chatScreen = document.getElementById('chat-interface-screen');
+        chatScreen.style.backgroundImage = chat.settings.background ? `url(${chat.settings.background})` : 'none';
+        chatScreen.style.backgroundColor = chat.settings.background ? 'transparent' : '#eef2f1';
+
+        chat.history.slice(-50).forEach(msg => {
+            container.insertBefore(createMessageElement(msg, chat), typing);
+        });
+        setTimeout(() => container.scrollTop = container.scrollHeight, 0);
+    }
+
+    function renderApiSettings() {
+        document.getElementById('proxy-url').value = state.apiConfig.proxyUrl || '';
+        document.getElementById('api-key').value = state.apiConfig.apiKey || '';
+    }
+
+    function applyGlobalWallpaper() {
+        const homeScreen = document.getElementById('home-screen');
+        const wallpaper = state.globalSettings.wallpaper;
+        if (wallpaper && wallpaper.startsWith('data:image')) homeScreen.style.backgroundImage = `url(${wallpaper})`;
+        else if (wallpaper) homeScreen.style.backgroundImage = wallpaper;
+        else homeScreen.style.backgroundImage = 'linear-gradient(135deg, #1c2b2d, #0f1719)'; 
+    }
+
+    function renderWallpaperScreen() {
+        const preview = document.getElementById('wallpaper-preview');
+        const bg = newWallpaperBase64 || state.globalSettings.wallpaper;
+        if (bg && bg.startsWith('data:image')) { preview.style.backgroundImage = `url(${bg})`; preview.textContent = ''; }
+        else if (bg) { preview.style.backgroundImage = bg; preview.textContent = '当前为纯色/渐变'; }
+    }
+
+    // --- 渲染 CSS 预设列表 ---
+    function renderCssPresets() {
+        const listEl = document.getElementById('css-preset-list');
+        listEl.innerHTML = '';
+        const presets = state.globalSettings.cssPresets ||[];
+        if (presets.length === 0) {
+            listEl.innerHTML = '<p style="text-align:center; color: #888; margin-top: 30px;">尚无脉络预设</p>';
+            return;
+        }
+        presets.forEach(preset => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.innerHTML = `<div class="item-title">${preset.name}</div><div class="item-content">轻触应用，长按销毁此预设</div>`;
+            
+            item.addEventListener('click', async () => {
+                const confirm = await showCustomConfirm('应用脉络', `确定要切换为【${preset.name}】吗？`);
+                if(confirm) {
+                    document.getElementById('global-css-input').value = preset.css;
+                    applyGlobalCss(preset.css);
+                    state.globalSettings.globalCss = preset.css;
+                    await db.globalSettings.put(state.globalSettings);
+                    document.getElementById('css-preset-modal').classList.remove('visible');
+                    await showCustomAlert('明悟', `天地已重塑为【${preset.name}】`);
+                }
+            });
+
+            let pressTimer;
+            const startPress = () => {
+                pressTimer = setTimeout(async () => {
+                    const confirmed = await showCustomConfirm('销毁预设', `确定要彻底散去【${preset.name}】吗？`, { confirmButtonClass: 'btn-danger' });
+                    if (confirmed) {
+                        state.globalSettings.cssPresets = state.globalSettings.cssPresets.filter(p => p.id !== preset.id);
+                        await db.globalSettings.put(state.globalSettings);
+                        renderCssPresets();
+                    }
+                }, 500);
+            };
+            const cancelPress = () => clearTimeout(pressTimer);
+            item.addEventListener('mousedown', startPress); item.addEventListener('mouseup', cancelPress); item.addEventListener('mouseleave', cancelPress);
+            item.addEventListener('touchstart', startPress, { passive: true }); item.addEventListener('touchend', cancelPress); item.addEventListener('touchmove', cancelPress);
+            
+            listEl.appendChild(item);
+        });
+    }
+
+    function renderWorldBookScreen() {
+        const listEl = document.getElementById('world-book-list');
+        listEl.innerHTML = '';
+        if (state.worldBooks.length === 0) { listEl.innerHTML = '<p style="text-align:center; color: #888; margin-top: 50px;">点击右上角 "+" 开辟第一本万象录</p>'; return; }
+        
+        state.worldBooks.forEach(book => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            const entryCount = book.entries ? book.entries.length : 0;
+            item.innerHTML = `<div class="item-title">${book.name}</div><div class="item-content">内含 ${entryCount} 卷残页</div>`;
+            
+            item.addEventListener('click', () => { 
+                editingWorldBookId = book.id; 
+                document.getElementById('world-book-name-input').value = book.name; 
+                renderWorldBookEntries();
+                window.showScreen('world-book-editor-screen'); 
+            });
+            
+            let pressTimer;
+            const startPress = () => { pressTimer = setTimeout(async () => { const confirmed = await showCustomConfirm('销毁本卷', `确定要彻底焚毁《${book.name}》吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.worldBooks.delete(book.id); state.worldBooks = state.worldBooks.filter(wb => wb.id !== book.id); renderWorldBookScreen(); } }, 500); };
+            const cancelPress = () => clearTimeout(pressTimer);
+            item.addEventListener('mousedown', startPress); item.addEventListener('mouseup', cancelPress); item.addEventListener('mouseleave', cancelPress);
+            item.addEventListener('touchstart', startPress, { passive: true }); item.addEventListener('touchend', cancelPress); item.addEventListener('touchmove', cancelPress);
+            listEl.appendChild(item);
+        });
+    }
+
+    function renderWorldBookEntries() {
+        const container = document.getElementById('entries-container');
+        container.innerHTML = '';
+        const book = state.worldBooks.find(wb => wb.id === editingWorldBookId);
+        if (!book) return;
+        if (!book.entries) book.entries =[]; 
+
+        book.entries.forEach(entry => {
+            const card = document.createElement('div');
+            card.className = 'entry-card';
+            card.dataset.id = entry.id;
+            card.innerHTML = `
+                <div class="entry-header">
+                    <label class="switch">
+                        <input type="checkbox" class="entry-enable" ${entry.enabled ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                    <span class="delete-entry-btn" title="焚毁此页">×</span>
+                </div>
+                <div class="form-group"><label>标注 (仅作提醒)</label><input type="text" class="entry-note" value="${entry.note || ''}" placeholder="例如：世界背景 / 宗门设定"></div>
+                <div class="form-group"><label>唤醒真言 (关键词，用英文逗号分隔)</label><input type="text" class="entry-keywords" value="${entry.keywords || ''}" placeholder="如留空则全局生效，例如：道友, 吃我一剑"></div>
+                <div class="form-group" style="margin-bottom:0;"><label>卷宗内容</label><textarea class="entry-content" rows="4" placeholder="在此书写详尽设定...">${entry.content || ''}</textarea></div>
+            `;
+            card.querySelector('.delete-entry-btn').addEventListener('click', async () => {
+                const confirmed = await showCustomConfirm('焚毁残卷', '确定要删除这条设定吗？', {confirmButtonClass: 'btn-danger'});
+                if(confirmed) {
+                    book.entries = book.entries.filter(e => e.id !== entry.id);
+                    renderWorldBookEntries();
+                }
+            });
+            container.appendChild(card);
+        });
+    }
+
+    function renderPersonaLibrary() {
+        const grid = document.getElementById('persona-library-grid');
+        grid.innerHTML = '';
+        if (state.personaPresets.length === 0) { grid.innerHTML = '<p style="color: #888; grid-column: 1 / -1; text-align: center; margin-top:20px;">空空如也</p>'; return; }
+        state.personaPresets.forEach(preset => {
+            const item = document.createElement('div');
+            item.className = 'persona-preset-item';
+            item.style.backgroundImage = `url(${preset.avatar})`;
+            
+            // 点击应用人设（头像、设定、名字）
+            item.addEventListener('click', () => { 
+                document.getElementById('my-avatar-preview').src = preset.avatar; 
+                document.getElementById('my-persona').value = preset.persona; 
+                document.getElementById('my-name-input').value = preset.myName || '我'; // 导入名字
+                document.getElementById('persona-library-modal').classList.remove('visible'); 
+            });
+            
+            let pressTimer;
+            const startPress = () => { pressTimer = setTimeout(() => { editingPersonaPresetId = preset.id; document.getElementById('preset-actions-modal').classList.add('visible'); }, 500); };
+            const cancelPress = () => clearTimeout(pressTimer);
+            item.addEventListener('mousedown', startPress); item.addEventListener('mouseup', cancelPress); item.addEventListener('mouseleave', cancelPress);
+            item.addEventListener('touchstart', startPress, { passive: true }); item.addEventListener('touchend', cancelPress); item.addEventListener('touchmove', cancelPress);
+            grid.appendChild(item);
+        });
+    }
+
+    // ==========================================================
+    // 初始化与事件绑定
+    // ==========================================================
+    async function init() {
+        try {
+            const[chatsArr, apiConf, glob, wBooks, pPresets] = await Promise.all([
+                db.chats.toArray(), db.apiConfig.get('main'), db.globalSettings.get('main'), db.worldBooks.toArray(), db.personaPresets.toArray()
+            ]);
+            state.chats = chatsArr.reduce((acc, chat) => { acc[chat.id] = chat; return acc; }, {});
+            state.apiConfig = apiConf || { id: 'main', proxyUrl: '', apiKey: '', model: '' };
+            state.globalSettings = glob || { id: 'main', wallpaper: '', fontUrl: '', globalCss: '', cssPresets:[] };
+            state.worldBooks = wBooks ||[];
+            state.personaPresets = pPresets ||[];
+
+            if (state.globalSettings.globalCss) applyGlobalCss(state.globalSettings.globalCss);
+            if (state.globalSettings.fontUrl) applyCustomFont(state.globalSettings.fontUrl);
+            applyGlobalWallpaper();
+            
+            setInterval(updateClock, 30000); updateClock();
+            window.showScreen('home-screen');
+
+            document.getElementById('custom-modal-cancel').addEventListener('click', hideCustomModal);
+            
+            // --- 角色与聊天交互 ---
+            document.getElementById('add-chat-btn').addEventListener('click', async () => {
+                const name = await showCustomPrompt('寻访故人', '请输入其尊名或道号');
+                if (name && name.trim()) {
+                    const newChat = { 
+                        id: 'chat_' + Date.now(), 
+                        name: name.trim(), 
+                        settings: { 
+                            aiPersona: '一位高深莫测的前辈...', 
+                            myPersona: '初入江湖的少侠...', 
+                            myName: '我', // 默认名字
+                            maxMemory: 15, 
+                            aiAvatar: defaultAvatar, 
+                            myAvatar: defaultAvatar, 
+                            background: '', 
+                            linkedWorldBookIds:[] 
+                        }, 
+                        history:[] 
+                    };
+                    state.chats[newChat.id] = newChat; await db.chats.put(newChat); renderChatList();
+                }
+            });
+
+            document.getElementById('back-to-list-btn').addEventListener('click', () => { state.activeChatId = null; window.showScreen('chat-list-screen'); });
+            
+            const chatInput = document.getElementById('chat-input');
+            document.getElementById('send-btn').addEventListener('click', async () => {
+                const content = chatInput.value.trim();
+                if (!content || !state.activeChatId) return;
+                const chat = state.chats[state.activeChatId];
+                const msg = { role: 'user', content, timestamp: Date.now() };
+                chat.history.push(msg); await db.chats.put(chat);
+                appendMessage(msg, chat); renderChatList();
+                chatInput.value = ''; chatInput.style.height = 'auto'; chatInput.focus();
+            });
+            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send-btn').click(); } });
+            chatInput.addEventListener('input', () => { chatInput.style.height = 'auto'; chatInput.style.height = (chatInput.scrollHeight) + 'px'; });
+            
+            document.getElementById('wait-reply-btn').addEventListener('click', triggerAiResponse);
+            document.getElementById('regenerate-btn').addEventListener('click', () => {
+                const btn = document.getElementById('regenerate-btn');
+                btn.style.transform = 'rotate(-180deg)'; setTimeout(() => btn.style.transform = 'rotate(0deg)', 300);
+                regenerateResponse();
+            });
+
+            // --- 角色设定 (命格推演) ---
+            document.getElementById('chat-settings-btn').addEventListener('click', () => {
+                if (!state.activeChatId) return;
+                const chat = state.chats[state.activeChatId];
+                document.getElementById('chat-name-input').value = chat.name;
+                document.getElementById('ai-persona').value = chat.settings.aiPersona;
+                document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
+                
+                document.getElementById('my-name-input').value = chat.settings.myName || '我'; // 读取名字
+                document.getElementById('my-persona').value = chat.settings.myPersona;
+                document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || defaultAvatar;
+                document.getElementById('max-memory').value = chat.settings.maxMemory;
+                
+                const bgPreview = document.getElementById('bg-preview');
+                const removeBgBtn = document.getElementById('remove-bg-btn');
+                if (chat.settings.background) { bgPreview.src = chat.settings.background; bgPreview.style.display = 'block'; removeBgBtn.style.display = 'inline-block'; } 
+                else { bgPreview.style.display = 'none'; removeBgBtn.style.display = 'none'; }
+
+                const wbContainer = document.getElementById('world-book-checkboxes-container');
+                wbContainer.innerHTML = '';
+                const linkedIds = chat.settings.linkedWorldBookIds ||[];
+                state.worldBooks.forEach(book => {
+                    const label = document.createElement('label'); label.style.display = 'block'; label.style.marginBottom = '8px'; label.style.cursor = 'pointer';
+                    label.innerHTML = `<input type="checkbox" value="${book.id}" ${linkedIds.includes(book.id) ? 'checked' : ''} style="width:auto; margin-right:8px; transform: scale(1.2);"> ${book.name}`;
+                    wbContainer.appendChild(label);
+                });
+                document.getElementById('chat-settings-modal').classList.add('visible');
+            });
+            
+            document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => document.getElementById('chat-settings-modal').classList.remove('visible'));
+            document.getElementById('save-chat-settings-btn').addEventListener('click', async () => {
+                if (!state.activeChatId) return;
+                const chat = state.chats[state.activeChatId];
+                chat.name = document.getElementById('chat-name-input').value.trim() || chat.name;
+                chat.settings.aiPersona = document.getElementById('ai-persona').value;
+                chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
+                
+                chat.settings.myName = document.getElementById('my-name-input').value.trim() || '我'; // 保存名字
+                chat.settings.myPersona = document.getElementById('my-persona').value;
+                chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
+                
+                chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 15;
+                const checkedBooks = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
+                chat.settings.linkedWorldBookIds = Array.from(checkedBooks).map(cb => cb.value);
+                await db.chats.put(chat);
+                document.getElementById('chat-settings-modal').classList.remove('visible');
+                renderChatInterface(state.activeChatId); renderChatList();
+            });
+            document.getElementById('clear-chat-btn').addEventListener('click', async () => {
+                if (!state.activeChatId) return;
+                const confirmed = await showCustomConfirm('斩断红尘', '此举将磨灭与该角色的所有过去，确定吗？', { confirmButtonClass: 'btn-danger' });
+                if (confirmed) { state.chats[state.activeChatId].history =[]; await db.chats.put(state.chats[state.activeChatId]); renderChatInterface(state.activeChatId); document.getElementById('chat-settings-modal').classList.remove('visible'); }
+            });
+
+            // --- 消息长按菜单 ---
+            document.getElementById('cancel-message-action-btn').addEventListener('click', () => { document.getElementById('message-actions-modal').classList.remove('visible'); activeMessageTimestamp = null; });
+            document.getElementById('copy-message-btn').addEventListener('click', async () => {
+                if (!activeMessageTimestamp) return;
+                const msg = state.chats[state.activeChatId].history.find(m => m.timestamp === activeMessageTimestamp);
+                if (msg) { await navigator.clipboard.writeText(msg.content); await showCustomAlert('拓印成功', '真言已入你心海'); }
+                document.getElementById('message-actions-modal').classList.remove('visible');
+            });
+            document.getElementById('delete-message-btn').addEventListener('click', async () => {
+                if (!activeMessageTimestamp) return;
+                const chat = state.chats[state.activeChatId];
+                chat.history = chat.history.filter(m => m.timestamp !== activeMessageTimestamp);
+                await db.chats.put(chat); renderChatInterface(state.activeChatId);
+                document.getElementById('message-actions-modal').classList.remove('visible');
+            });
+            document.getElementById('edit-message-btn').addEventListener('click', async () => {
+                if (!activeMessageTimestamp) return;
+                const chat = state.chats[state.activeChatId];
+                const msg = chat.history.find(m => m.timestamp === activeMessageTimestamp);
+                if (!msg) return;
+                document.getElementById('message-actions-modal').classList.remove('visible');
+                const newContent = await showCustomPrompt('修改真言', '在此修改内容...', msg.content, 'textarea');
+                if (newContent !== null) { msg.content = newContent; await db.chats.put(chat); renderChatInterface(state.activeChatId); }
+            });
+
+            // --- 图像上传工具 ---
+            const setupUpload = (inputId, previewId) => {
+                document.getElementById(inputId).addEventListener('change', async (e) => {
+                    const file = e.target.files[0]; if (!file) return;
+                    const reader = new FileReader(); reader.onload = (ev) => document.getElementById(previewId).src = ev.target.result;
+                    reader.readAsDataURL(file); e.target.value = null;
+                });
+            };
+            setupUpload('ai-avatar-input', 'ai-avatar-preview');
+            setupUpload('my-avatar-input', 'my-avatar-preview');
+            setupUpload('preset-avatar-input', 'preset-avatar-preview');
+            
+            document.getElementById('bg-input').addEventListener('change', (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                const reader = new FileReader(); reader.onload = (ev) => {
+                    if (state.activeChatId) { state.chats[state.activeChatId].settings.background = ev.target.result; document.getElementById('bg-preview').src = ev.target.result; document.getElementById('bg-preview').style.display = 'block'; document.getElementById('remove-bg-btn').style.display = 'inline-block'; }
+                }; reader.readAsDataURL(file); e.target.value = null;
+            });
+            document.getElementById('remove-bg-btn').addEventListener('click', () => { if (state.activeChatId) { state.chats[state.activeChatId].settings.background = ''; document.getElementById('bg-preview').style.display = 'none'; document.getElementById('remove-bg-btn').style.display = 'none'; } });
+
+            // --- 万象录 (世界书) ---
+            document.getElementById('add-world-book-btn').addEventListener('click', async () => {
+                const name = await showCustomPrompt('创世', '请输入新万象录的卷名');
+                if (name && name.trim()) { const newBook = { id: 'wb_' + Date.now(), name: name.trim(), entries:[] }; await db.worldBooks.add(newBook); state.worldBooks.push(newBook); renderWorldBookScreen(); }
+            });
+            document.getElementById('add-entry-btn').addEventListener('click', () => {
+                const book = state.worldBooks.find(wb => wb.id === editingWorldBookId);
+                if (!book) return;
+                if (!book.entries) book.entries =[];
+                book.entries.push({ id: 'entry_' + Date.now(), note: '', keywords: '', content: '', enabled: true });
+                renderWorldBookEntries();
+                const container = document.getElementById('world-book-editor-screen').querySelector('.form-container');
+                setTimeout(() => container.scrollTop = container.scrollHeight, 100);
+            });
+            document.getElementById('save-world-book-btn').addEventListener('click', async () => {
+                if (!editingWorldBookId) return;
+                const book = state.worldBooks.find(wb => wb.id === editingWorldBookId);
+                if (!book) return;
+                
+                const newName = document.getElementById('world-book-name-input').value.trim();
+                if (!newName) return showCustomAlert('警示', '卷名不可为空');
+                book.name = newName;
+                
+                const cards = document.querySelectorAll('.entry-card');
+                const newEntries =[];
+                cards.forEach(card => {
+                    newEntries.push({
+                        id: card.dataset.id,
+                        enabled: card.querySelector('.entry-enable').checked,
+                        note: card.querySelector('.entry-note').value.trim(),
+                        keywords: card.querySelector('.entry-keywords').value.trim(),
+                        content: card.querySelector('.entry-content').value.trim()
+                    });
+                });
+                book.entries = newEntries;
+                await db.worldBooks.put(book); 
+                renderWorldBookScreen(); 
+                window.showScreen('world-book-screen'); 
+            });
+
+            // --- 身世库 (玩家人设库) ---
+            document.getElementById('open-persona-library-btn').addEventListener('click', () => { renderPersonaLibrary(); document.getElementById('persona-library-modal').classList.add('visible'); });
+            document.getElementById('close-persona-library-btn').addEventListener('click', () => document.getElementById('persona-library-modal').classList.remove('visible'));
+            
+            // 新建身世
+            document.getElementById('add-persona-preset-btn').addEventListener('click', () => { 
+                editingPersonaPresetId = null; 
+                document.getElementById('persona-editor-title').textContent = '凝练新魂'; 
+                document.getElementById('preset-avatar-preview').src = defaultAvatar; 
+                document.getElementById('preset-name-input').value = ''; // 清空名字
+                document.getElementById('preset-persona-input').value = ''; 
+                document.getElementById('persona-editor-modal').classList.add('visible'); 
+            });
+            document.getElementById('cancel-persona-editor-btn').addEventListener('click', () => document.getElementById('persona-editor-modal').classList.remove('visible'));
+            
+            // 保存身世
+            document.getElementById('save-persona-preset-btn').addEventListener('click', async () => {
+                const avatar = document.getElementById('preset-avatar-preview').src; 
+                const myName = document.getElementById('preset-name-input').value.trim() || '我'; // 名字
+                const persona = document.getElementById('preset-persona-input').value.trim();
+                
+                if (editingPersonaPresetId) { 
+                    const preset = state.personaPresets.find(p => p.id === editingPersonaPresetId); 
+                    if (preset) { 
+                        preset.avatar = avatar; 
+                        preset.myName = myName;
+                        preset.persona = persona; 
+                        await db.personaPresets.put(preset); 
+                    } 
+                } else { 
+                    const newPreset = { id: 'preset_' + Date.now(), avatar, myName, persona }; 
+                    await db.personaPresets.add(newPreset); state.personaPresets.push(newPreset); 
+                }
+                renderPersonaLibrary(); document.getElementById('persona-editor-modal').classList.remove('visible');
+            });
+            
+            document.getElementById('preset-action-cancel').addEventListener('click', () => { document.getElementById('preset-actions-modal').classList.remove('visible'); editingPersonaPresetId = null; });
+            
+            // 编辑身世
+            document.getElementById('preset-action-edit').addEventListener('click', () => {
+                const preset = state.personaPresets.find(p => p.id === editingPersonaPresetId); if (!preset) return;
+                document.getElementById('persona-editor-title').textContent = '修改命理'; 
+                document.getElementById('preset-avatar-preview').src = preset.avatar; 
+                document.getElementById('preset-name-input').value = preset.myName || '我'; // 加载名字
+                document.getElementById('preset-persona-input').value = preset.persona;
+                document.getElementById('preset-actions-modal').classList.remove('visible'); document.getElementById('persona-editor-modal').classList.add('visible');
+            });
+            document.getElementById('preset-action-delete').addEventListener('click', async () => {
+                if (editingPersonaPresetId) { await db.personaPresets.delete(editingPersonaPresetId); state.personaPresets = state.personaPresets.filter(p => p.id !== editingPersonaPresetId); document.getElementById('preset-actions-modal').classList.remove('visible'); renderPersonaLibrary(); }
+            });
+
+            // --- 系统设置 (API) ---
+            document.getElementById('save-api-settings-btn').addEventListener('click', async () => {
+                state.apiConfig.proxyUrl = document.getElementById('proxy-url').value.trim();
+                state.apiConfig.apiKey = document.getElementById('api-key').value.trim();
+                state.apiConfig.model = document.getElementById('model-select').value;
+                await db.apiConfig.put(state.apiConfig); await showCustomAlert('明悟', '天道法则已铭刻于心');
+            });
+            document.getElementById('fetch-models-btn').addEventListener('click', async () => {
+                const url = document.getElementById('proxy-url').value.trim(); const key = document.getElementById('api-key').value.trim();
+                if (!url || !key) return await showCustomAlert('残缺', '请先寻得反代地址与密钥');
+                try {
+                    const response = await fetch(`${url}/v1/models`, { headers: { 'Authorization': `Bearer ${key}` } });
+                    const data = await response.json(); const select = document.getElementById('model-select'); select.innerHTML = '';
+                    data.data.forEach(model => { const option = document.createElement('option'); option.value = model.id; option.textContent = model.id; if(model.id === state.apiConfig.model) option.selected = true; select.appendChild(option); });
+                    await showCustomAlert('大善', '已成功感知天地间的化身');
+                } catch (error) { await showCustomAlert('蒙蔽', `感知失败: ${error.message}`); }
+            });
+
+            // --- 幻境绘卷 (壁纸 与 全局CSS) ---
+            document.getElementById('wallpaper-upload-input').addEventListener('change', async (event) => {
+                const file = event.target.files[0]; if(file) {
+                    const dataUrl = await new Promise((res, rej) => { const reader = new FileReader(); reader.onload = () => res(reader.result); reader.readAsDataURL(file); });
+                    newWallpaperBase64 = dataUrl; renderWallpaperScreen();
+                }
+            });
+            document.getElementById('save-wallpaper-btn').addEventListener('click', async () => {
+                if (newWallpaperBase64) { state.globalSettings.wallpaper = newWallpaperBase64; await db.globalSettings.put(state.globalSettings); applyGlobalWallpaper(); newWallpaperBase64 = null; await showCustomAlert('明悟', '幻境已更迭'); window.showScreen('home-screen'); }
+                else await showCustomAlert('无物', '请先展开一张绘卷');
+            });
+            
+            // 全局 CSS 预设管理事件
+            document.getElementById('manage-css-presets-btn').addEventListener('click', () => {
+                renderCssPresets();
+                document.getElementById('css-preset-modal').classList.add('visible');
+            });
+            document.getElementById('close-css-preset-btn').addEventListener('click', () => {
+                document.getElementById('css-preset-modal').classList.remove('visible');
+            });
+
+            document.getElementById('save-as-preset-btn').addEventListener('click', async () => {
+                const cssText = document.getElementById('global-css-input').value.trim();
+                if (!cssText) return showCustomAlert('无物', '尚未输入任何法则(CSS为空)');
+                
+                const name = await showCustomPrompt('存为新卷', '请为这段天地脉络(CSS预设)命名');
+                if (name && name.trim()) {
+                    if (!state.globalSettings.cssPresets) state.globalSettings.cssPresets =[];
+                    state.globalSettings.cssPresets.push({
+                        id: 'css_' + Date.now(),
+                        name: name.trim(),
+                        css: cssText
+                    });
+                    
+                    applyGlobalCss(cssText);
+                    state.globalSettings.globalCss = cssText;
+                    await db.globalSettings.put(state.globalSettings);
+                    
+                    await showCustomAlert('明悟', `【${name.trim()}】已收录，并已布施于天地`);
+                }
+            });
+
+            document.getElementById('save-global-css-btn').addEventListener('click', async () => {
+                const cssText = document.getElementById('global-css-input').value.trim();
+                applyGlobalCss(cssText);
+                state.globalSettings.globalCss = cssText;
+                await db.globalSettings.put(state.globalSettings);
+                await showCustomAlert('明悟', '当前脉络已生效');
+            });
+            
+            // 加入二次确认的清除功能
+            document.getElementById('reset-global-css-btn').addEventListener('click', async () => {
+                const confirmed = await showCustomConfirm('散去灵力', '确定要清除所有全局自定义CSS吗？此操作不可逆！', { confirmButtonClass: 'btn-danger' });
+                if (confirmed) {
+                    document.getElementById('global-css-input').value = '';
+                    applyGlobalCss('');
+                    state.globalSettings.globalCss = '';
+                    await db.globalSettings.put(state.globalSettings);
+                    await showCustomAlert('化凡', '灵力已散去 (全局CSS已清除)');
+                }
+            });
+
+            // --- 翰墨丹青 (字体) ---
+            document.getElementById('save-font-btn').addEventListener('click', async () => {
+                const newFontUrl = document.getElementById('font-url-input').value.trim();
+                applyCustomFont(newFontUrl); state.globalSettings.fontUrl = newFontUrl; await db.globalSettings.put(state.globalSettings); await showCustomAlert('明悟', '笔迹已改变');
+            });
+            document.getElementById('reset-font-btn').addEventListener('click', async () => {
+                document.getElementById('font-url-input').value = ''; applyCustomFont(''); state.globalSettings.fontUrl = ''; await db.globalSettings.put(state.globalSettings); await showCustomAlert('化凡', '笔迹已归于平凡');
+            });
+
+            // --- 导入导出 ---
+            document.getElementById('export-data-btn').addEventListener('click', async () => {
+                const backup = { chats: await db.chats.toArray(), worldBooks: await db.worldBooks.toArray(), personaPresets: await db.personaPresets.toArray(), apiConfig: await db.apiConfig.get('main'), globalSettings: await db.globalSettings.get('main') };
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a'); link.href = url; link.download = `RPG-Backup-${Date.now()}.json`; link.click(); URL.revokeObjectURL(url);
+            });
+            document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-data-input').click());
+            document.getElementById('import-data-input').addEventListener('change', async (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                const confirmed = await showCustomConfirm('天机警告', '重塑本源将彻底抹去当前世间的一切因果，你确定要重来吗？', { confirmButtonClass: 'btn-danger' });
+                if (!confirmed) return;
+                try {
+                    const text = await file.text(); const data = JSON.parse(text);
+                    await db.transaction('rw', db.tables, async () => {
+                        for (const table of db.tables) await table.clear();
+                        if (data.chats) await db.chats.bulkPut(data.chats);
+                        if (data.worldBooks) await db.worldBooks.bulkPut(data.worldBooks);
+                        if (data.personaPresets) await db.personaPresets.bulkPut(data.personaPresets);
+                        if (data.apiConfig) await db.apiConfig.put(data.apiConfig);
+                        if (data.globalSettings) await db.globalSettings.put(data.globalSettings);
+                    });
+                    await showCustomAlert('破局', '夺舍成功，即将重启这方天地！'); setTimeout(() => window.location.reload(), 1500);
+                } catch (err) { await showCustomAlert('反噬', '归档已毁坏: ' + err.message); }
+            });
+        } catch (err) {
+            alert("天地残缺，法则崩坏（初始化失败）。请清理浏览器缓存或联系作者！\n\n报错内容: " + err.message);
+            console.error(err);
+        }
+    }
+
+    init();
+});
+</script>
+</body>
+</html>

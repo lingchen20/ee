@@ -1,0 +1,17 @@
+{
+  "name": "浮生入梦",
+  "short_name": "浮生入梦",
+  "description": "沉浸式古风演绎剧情平台",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://i.postimg.cc/sftBGdw2/1778555381427.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
