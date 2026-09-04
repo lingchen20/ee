@@ -6,7 +6,7 @@
     <title>浮生入梦</title>
     
     <!-- PWA 相关元数据 -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="浮生入梦">
@@ -374,7 +374,7 @@
 // PWA Service Worker 注册
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('天道运行中 (Service Worker 注册成功)'))
             .catch(err => console.log('天机受阻 (Service Worker 注册失败)', err));
     });
