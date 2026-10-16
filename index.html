@@ -75,7 +75,8 @@
         
         /* 包含头像和名字的垂直容器 */
         .message-bubble .avatar-container { display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; width: 50px; }
-        .message-bubble .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 3px rgba(0,0,0,0.1);}
+        .message-bubble .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.3s;}
+        .message-bubble .avatar.has-thought { box-shadow: 0 0 10px rgba(52, 94, 92, 0.5); border: 2px solid rgba(52, 94, 92, 0.3); }
         .message-bubble .avatar-name { font-size: 11px; color: var(--text-secondary); text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; line-height: 1;}
         
         /* 气泡样式 */
@@ -227,12 +228,21 @@
         <div id="api-settings-screen" class="screen">
             <div class="header"><span class="back-btn" onclick="window.showScreen('home-screen')">‹</span><span>天道法则</span><span style="width: 30px;"></span></div>
             <div class="form-container">
-                <div class="form-group"><label>灵枢法阵 (反代地址)</label><input type="text" id="proxy-url" placeholder="例如: https://api.openai.com"></div>
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="margin: 0;">灵枢法阵 (反代地址)</label>
+                        <span id="manage-api-presets-btn" style="color: var(--accent-color); cursor: pointer; font-size: 14px; font-weight: bold; padding: 0 5px;">预设管理</span>
+                    </div>
+                    <input type="text" id="proxy-url" placeholder="例如: https://api.openai.com">
+                </div>
                 <div class="form-group"><label>天道信物 (API Key)</label><input type="password" id="api-key" placeholder="sk-..."></div>
                 <div class="form-group"><label>灵智化身 (模型)</label><select id="model-select"></select></div>
                 <button class="form-button" id="fetch-models-btn">感知天地化身</button>
                 <hr style="margin:25px 0; opacity:.15;">
-                <button class="form-button" id="save-api-settings-btn">铭刻法则</button>
+                <div style="display: flex; gap: 12px;">
+                    <button class="form-button" id="save-api-settings-btn" style="margin-top:0;">铭刻法则</button>
+                    <button class="form-button-secondary form-button" id="save-as-api-preset-btn" style="margin-top:0;">存为新法则</button>
+                </div>
                 <hr style="margin:25px 0; opacity:.15;">
                 <button class="form-button-secondary form-button" id="export-data-btn" style="margin-top: 0;">抽取本源 (导出数据)</button>
                 <button class="form-button-secondary form-button" id="import-btn">重塑本源 (导入数据)</button>
@@ -289,7 +299,6 @@
                 <div class="form-group"><label>性情与过往 (AI人设)</label><textarea id="ai-persona" rows="4" placeholder="惊绝天下的少年符师，素衣胜雪，下笔间乾坤倒转。表面温润如玉，实则袖藏杀局。最讲究‘赢要洒脱，输要风度’。若是不慎落败，定是今日出门没看黄历，或是极品符纸带得少了些..."></textarea></div>
                 <hr style="opacity: 0.1; margin: 25px 0;">
                 
-                <!-- 新增：吾之名讳 -->
                 <div class="form-group">
                     <label>吾之名讳 (我的名字)</label>
                     <input type="text" id="my-name-input" placeholder="输入你在当前剧情中的称呼...">
@@ -303,6 +312,17 @@
                 <hr style="margin: 30px 0 20px 0; border: none; border-top: 1px solid #eee;"><button class="form-button form-button-secondary" id="clear-chat-btn" style="color: #ff4d4f; border-color: #ff4d4f;">斩断红尘 (清空记录)</button>
             </div>
             <div class="modal-footer"><button class="cancel" id="cancel-chat-settings-btn">放弃</button><button class="save" id="save-chat-settings-btn">凝铸命格</button></div>
+        </div>
+    </div>
+
+    <!-- API 预设管理库 -->
+    <div id="api-preset-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span>法则预设卷宗</span></div>
+            <div class="modal-body" style="background: #eef2f1;">
+                <div id="api-preset-list" class="list-container" style="padding: 0;"></div>
+            </div>
+            <div class="modal-footer"><button class="cancel" id="close-api-preset-btn" style="width:100%;">合卷</button></div>
         </div>
     </div>
 
@@ -398,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingWorldBookId = null;
     let editingPersonaPresetId = null;
     let activeMessageTimestamp = null;
+    let currentChatDisplayLimit = 50; // 控制聊天记录展现的数量
     
     let modalResolve;
     const modalOverlay = document.getElementById('custom-modal-overlay');
@@ -479,12 +500,29 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('main-date').textContent = `${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}`;
     }
 
-    function parseAiResponse(content) {
-        const trimmed = content.trim();
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-            try { const parsed = JSON.parse(trimmed); if (Array.isArray(parsed)) return parsed; } catch (e) {}
+    // 更新：用于解析同时包含内容和心声的JSON对象
+    function parseAiResponse(rawContent) {
+        let text = rawContent.trim();
+        // 清理可能存在的 Markdown 代码块包裹
+        if (text.startsWith('```')) {
+            text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
         }
-        return content.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('```'));
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return {
+                    content: parsed.content || '',
+                    innerThought: parsed.inner_thought || ''
+                };
+            } else if (Array.isArray(parsed)) {
+                // 兼容旧版数组格式
+                return { content: parsed.join('\n\n'), innerThought: '' };
+            }
+        } catch (e) {
+            console.warn("JSON解析失败，尝试直接回退", e);
+        }
+        // 解析失败直接作为文本返回
+        return { content: text, innerThought: '' };
     }
 
     // ==========================================================
@@ -557,6 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // 修改 Prompt，要求生成心声并输出指定的 JSON 对象格式
         const systemPrompt = `你现在身处一个古风文字剧情世界中，扮演名为"${chat.name}"的角色，与用户进行沉浸式的剧情演绎。
 
 # 剧情设定信息${worldBookContent}
@@ -569,19 +608,20 @@ ${chat.settings.aiPersona}
 【设定】：${chat.settings.myPersona}
 
 # 剧情演绎核心规则：
-1. **小说体格式（严格遵守）**：你的回复必须像古典文学或仙侠武侠小说一样。
-   - 角色的对话内容**必须用双引号“”括起来**。
-   - 角色的动作、神态、心理活动以及环境描写等，**必须写在双引号外面**。
-   - 所有在引号之外的文字都将被视为动作/环境描写。
-   - 你可以自由地将对话穿插在描写的任何位置，实现自然分段，但包裹对话的引号前不能有其他符号。
-   - 示例：微风拂过，他轻轻抿了一口茶，眼中闪过一丝复杂的情绪“公子此言差矣，天下大势，岂是你我能左右的？”
-2. **环境与交互**：当前是真实的古风剧情互动场景，请使用优美、带有古风韵味的文字，细腻刻画场景氛围，并在描写和对话中自然称呼用户设定的姓名。
-3. **禁止出戏**：绝不能透露你是AI。严禁出现任何诸如“发消息”、“在线”、“视频”、“群聊”等现代网络词汇。
+1. **小说体格式（严格遵守）**：角色的对话内容必须用双引号“”括起来。动作、神态、心理活动及环境描写等必须写在双引号外面。自然分段。
+2. **环境与交互**：使用优美、带有古风韵味的文字，细腻刻画场景氛围，并在描写和对话中自然称呼用户设定的姓名。
+3. **禁止出戏**：绝不能透露你是AI。严禁出现任何诸如“发消息”、“在线”、“群聊”等现代网络词汇。
 4. **推动剧情**：根据用户的动作或言语，做出符合人物性格的反应，并主动引发事件或抛出话题来推进剧情。
-5. **输出格式**：你的回复必须是一个严格的JSON数组格式，且**数组中只能包含一个唯一的字符串元素**。 - **严禁**将剧情拆分成多个数组元素。 - **自然分段**：请在这个唯一的字符串内部，使用两个换行符（\n\n）来进行自然分段和描写。 - 正确示例格式 ：她将长剑收入鞘中，发出一声剑鸣“既然你已决定，我便随你走一遭。”\n\n说罢，她转身向门外走去，那一抹红影在月光下显得格外孤寂。 
+5. **额外心声要求**：除了表面上的剧情回复，你还需生成一段50-200字的【心声】，写出你扮演角色此刻最真实的内心情感、算计或吐槽。
+6. **输出格式**：你的回复必须是一个严格的 JSON 对象格式，包含以下两个字段（绝不要输出额外Markdown或其他说明文本）：
+{
+  "content": "你的剧情演绎回复（对话和动作描写，内部使用 \\n\\n 来进行自然分段）",
+  "inner_thought": "50-200字的角色内心真实心声"
+}
 
 请沉浸在角色中，根据下面的剧情发展历史，继续演绎。`;
         
+        // 此处的 map 只提取了 content，因此自带的心声(innerThought)不会被发送给 API，完美实现“不加入记忆”
         const messagesPayload = historySlice.map(msg => ({ role: msg.role, content: msg.content }));
 
         try {
@@ -592,10 +632,19 @@ ${chat.settings.aiPersona}
             });
             if (!response.ok) throw new Error(`天机蒙蔽: ${response.status}`);
             const data = await response.json();
-            const messagesArray = parseAiResponse(data.choices[0].message.content); 
-            const fullContent = Array.isArray(messagesArray) ? messagesArray.join('\n\n') : messagesArray; 
+            
+            // 解析包含心声的 JSON
+            const parsedData = parseAiResponse(data.choices[0].message.content); 
+            const fullContent = parsedData.content; 
+            const innerThought = parsedData.innerThought;
+            
             if (fullContent) { 
-                const aiMessage = { role: 'assistant', content: String(fullContent), timestamp: Date.now() }; 
+                const aiMessage = { 
+                    role: 'assistant', 
+                    content: String(fullContent), 
+                    innerThought: innerThought ? String(innerThought) : undefined, // 保存心声
+                    timestamp: Date.now() 
+                }; 
                 chat.history.push(aiMessage); 
                 await db.chats.put(chat); 
                 if (state.activeChatId === chat.id) appendMessage(aiMessage, chat); 
@@ -662,7 +711,12 @@ ${chat.settings.aiPersona}
                     <div class="last-msg">${lastText}</div>
                 </div>`;
 
-            item.addEventListener('click', () => { state.activeChatId = chat.id; renderChatInterface(chat.id); window.showScreen('chat-interface-screen'); });
+            item.addEventListener('click', () => { 
+                state.activeChatId = chat.id; 
+                currentChatDisplayLimit = 50; // 重置显示限制
+                renderChatInterface(chat.id); 
+                window.showScreen('chat-interface-screen'); 
+            });
             
             let pressTimer;
             const startPress = (e) => { e.preventDefault(); pressTimer = setTimeout(async () => {
@@ -699,7 +753,7 @@ ${chat.settings.aiPersona}
         
         bubble.innerHTML = `
             <div class="avatar-container">
-                <img src="${avatarSrc}" class="avatar">
+                <img src="${avatarSrc}" class="avatar ${(!isUser && msg.innerThought) ? 'has-thought' : ''}">
                 <span class="avatar-name">${displayName}</span>
             </div>
             <div class="content">${contentHtml}</div>
@@ -711,6 +765,23 @@ ${chat.settings.aiPersona}
         
         wrapper.appendChild(bubble);
         wrapper.appendChild(timestampEl);
+
+        // 如果存在心声，给头像增加点击事件
+        if (!isUser && msg.innerThought) {
+            const avatarImg = bubble.querySelector('.avatar');
+            avatarImg.style.cursor = 'pointer';
+            avatarImg.title = '触碰探听心声';
+            
+            // 阻止冒泡，以免触发长按消息菜单
+            const stopEvent = (e) => e.stopPropagation();
+            avatarImg.addEventListener('mousedown', stopEvent);
+            avatarImg.addEventListener('touchstart', stopEvent, { passive: true });
+            
+            avatarImg.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showCustomAlert(`窥探【${displayName}】的心声`, msg.innerThought);
+            });
+        }
 
         let pressTimer;
         const startPress = (e) => { pressTimer = setTimeout(() => { activeMessageTimestamp = msg.timestamp; document.getElementById('message-actions-modal').classList.add('visible'); }, 500); };
@@ -728,27 +799,132 @@ ${chat.settings.aiPersona}
         container.scrollTop = container.scrollHeight;
     }
 
-    function renderChatInterface(chatId) {
+    function renderChatInterface(chatId, maintainScroll = false) {
         const chat = state.chats[chatId];
         if (!chat) return;
         const container = document.getElementById('chat-messages');
-        const typing = document.getElementById('typing-indicator');
+        
+        let typing = document.getElementById('typing-indicator');
+        if (!typing) {
+            typing = document.createElement('div');
+            typing.id = 'typing-indicator';
+            typing.textContent = '心念转动中...';
+        }
+
+        const oldScrollTop = container.scrollTop;
+        const oldScrollHeight = container.scrollHeight;
+
         container.innerHTML = '';
+        
+        // 分页/溯源功能
+        if (chat.history.length > currentChatDisplayLimit) {
+            const loadMoreBtn = document.createElement('div');
+            loadMoreBtn.style.cssText = 'text-align:center; padding:10px; color:var(--accent-color); cursor:pointer; font-size: 13px; margin-bottom: 10px; text-decoration: underline; text-underline-offset: 4px;';
+            loadMoreBtn.textContent = '溯回更早的记忆';
+            loadMoreBtn.onclick = () => {
+                currentChatDisplayLimit += 50;
+                renderChatInterface(chatId, true);
+            };
+            container.appendChild(loadMoreBtn);
+        }
+        
         container.appendChild(typing);
 
         const chatScreen = document.getElementById('chat-interface-screen');
         chatScreen.style.backgroundImage = chat.settings.background ? `url(${chat.settings.background})` : 'none';
         chatScreen.style.backgroundColor = chat.settings.background ? 'transparent' : '#eef2f1';
 
-        chat.history.slice(-50).forEach(msg => {
+        const messagesToShow = chat.history.slice(-currentChatDisplayLimit);
+        messagesToShow.forEach(msg => {
             container.insertBefore(createMessageElement(msg, chat), typing);
         });
-        setTimeout(() => container.scrollTop = container.scrollHeight, 0);
+        
+        // 保持滑动位置，防止因为加载更多导致位置跳动
+        if (maintainScroll) {
+            container.scrollTop = oldScrollTop + (container.scrollHeight - oldScrollHeight);
+        } else {
+            setTimeout(() => container.scrollTop = container.scrollHeight, 0);
+        }
     }
 
+    // --- API设置与预设管理 ---
     function renderApiSettings() {
         document.getElementById('proxy-url').value = state.apiConfig.proxyUrl || '';
         document.getElementById('api-key').value = state.apiConfig.apiKey || '';
+        
+        const select = document.getElementById('model-select');
+        select.innerHTML = '';
+        if (state.apiConfig.model) {
+            const option = document.createElement('option');
+            option.value = state.apiConfig.model;
+            option.textContent = state.apiConfig.model;
+            option.selected = true;
+            select.appendChild(option);
+        }
+    }
+    
+    function renderApiPresets() {
+        const listEl = document.getElementById('api-preset-list');
+        listEl.innerHTML = '';
+        const presets = state.apiConfig.presets || [];
+        if (presets.length === 0) {
+            listEl.innerHTML = '<p style="text-align:center; color: #888; margin-top: 30px;">尚无法则预设</p>';
+            return;
+        }
+        presets.forEach(preset => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            const maskedKey = preset.apiKey ? preset.apiKey.substring(0, 5) + '***' : '无';
+            item.innerHTML = `<div class="item-title">${preset.name}</div><div class="item-content">模型: ${preset.model || '未设'} | 密钥: ${maskedKey}</div>`;
+            
+            item.addEventListener('click', async () => {
+                const confirm = await showCustomConfirm('切换法则', `确定要切换为【${preset.name}】吗？`);
+                if(confirm) {
+                    document.getElementById('proxy-url').value = preset.proxyUrl || '';
+                    document.getElementById('api-key').value = preset.apiKey || '';
+                    
+                    const select = document.getElementById('model-select');
+                    let exists = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === preset.model) {
+                            exists = true; break;
+                        }
+                    }
+                    if (!exists && preset.model) {
+                        const option = document.createElement('option');
+                        option.value = preset.model;
+                        option.textContent = preset.model;
+                        select.appendChild(option);
+                    }
+                    select.value = preset.model || '';
+                    
+                    state.apiConfig.proxyUrl = preset.proxyUrl || '';
+                    state.apiConfig.apiKey = preset.apiKey || '';
+                    state.apiConfig.model = preset.model || '';
+                    await db.apiConfig.put(state.apiConfig);
+                    
+                    document.getElementById('api-preset-modal').classList.remove('visible');
+                    await showCustomAlert('明悟', `天地法则已切换为【${preset.name}】`);
+                }
+            });
+
+            let pressTimer;
+            const startPress = () => {
+                pressTimer = setTimeout(async () => {
+                    const confirmed = await showCustomConfirm('销毁法则', `确定要彻底散去【${preset.name}】吗？`, { confirmButtonClass: 'btn-danger' });
+                    if (confirmed) {
+                        state.apiConfig.presets = state.apiConfig.presets.filter(p => p.id !== preset.id);
+                        await db.apiConfig.put(state.apiConfig);
+                        renderApiPresets();
+                    }
+                }, 500);
+            };
+            const cancelPress = () => clearTimeout(pressTimer);
+            item.addEventListener('mousedown', startPress); item.addEventListener('mouseup', cancelPress); item.addEventListener('mouseleave', cancelPress);
+            item.addEventListener('touchstart', startPress, { passive: true }); item.addEventListener('touchend', cancelPress); item.addEventListener('touchmove', cancelPress);
+            
+            listEl.appendChild(item);
+        });
     }
 
     function applyGlobalWallpaper() {
@@ -907,7 +1083,11 @@ ${chat.settings.aiPersona}
                 db.chats.toArray(), db.apiConfig.get('main'), db.globalSettings.get('main'), db.worldBooks.toArray(), db.personaPresets.toArray()
             ]);
             state.chats = chatsArr.reduce((acc, chat) => { acc[chat.id] = chat; return acc; }, {});
-            state.apiConfig = apiConf || { id: 'main', proxyUrl: '', apiKey: '', model: '' };
+            
+            // API 设定状态与默认值
+            state.apiConfig = apiConf || { id: 'main', proxyUrl: '', apiKey: '', model: '', presets: [] };
+            if (!state.apiConfig.presets) state.apiConfig.presets = [];
+            
             state.globalSettings = glob || { id: 'main', wallpaper: '', fontUrl: '', globalCss: '', cssPresets:[] };
             state.worldBooks = wBooks ||[];
             state.personaPresets = pPresets ||[];
@@ -1032,7 +1212,7 @@ ${chat.settings.aiPersona}
                 if (!activeMessageTimestamp) return;
                 const chat = state.chats[state.activeChatId];
                 chat.history = chat.history.filter(m => m.timestamp !== activeMessageTimestamp);
-                await db.chats.put(chat); renderChatInterface(state.activeChatId);
+                await db.chats.put(chat); renderChatInterface(state.activeChatId, true);
                 document.getElementById('message-actions-modal').classList.remove('visible');
             });
             document.getElementById('edit-message-btn').addEventListener('click', async () => {
@@ -1042,7 +1222,7 @@ ${chat.settings.aiPersona}
                 if (!msg) return;
                 document.getElementById('message-actions-modal').classList.remove('visible');
                 const newContent = await showCustomPrompt('修改真言', '在此修改内容...', msg.content, 'textarea');
-                if (newContent !== null) { msg.content = newContent; await db.chats.put(chat); renderChatInterface(state.activeChatId); }
+                if (newContent !== null) { msg.content = newContent; await db.chats.put(chat); renderChatInterface(state.activeChatId, true); }
             });
 
             // --- 图像上传工具 ---
@@ -1156,7 +1336,7 @@ ${chat.settings.aiPersona}
                 if (editingPersonaPresetId) { await db.personaPresets.delete(editingPersonaPresetId); state.personaPresets = state.personaPresets.filter(p => p.id !== editingPersonaPresetId); document.getElementById('preset-actions-modal').classList.remove('visible'); renderPersonaLibrary(); }
             });
 
-            // --- 系统设置 (API) ---
+            // --- 系统设置 (API) 及预设 ---
             document.getElementById('save-api-settings-btn').addEventListener('click', async () => {
                 state.apiConfig.proxyUrl = document.getElementById('proxy-url').value.trim();
                 state.apiConfig.apiKey = document.getElementById('api-key').value.trim();
@@ -1172,6 +1352,41 @@ ${chat.settings.aiPersona}
                     data.data.forEach(model => { const option = document.createElement('option'); option.value = model.id; option.textContent = model.id; if(model.id === state.apiConfig.model) option.selected = true; select.appendChild(option); });
                     await showCustomAlert('大善', '已成功感知天地间的化身');
                 } catch (error) { await showCustomAlert('蒙蔽', `感知失败: ${error.message}`); }
+            });
+
+            // API 预设管理事件
+            document.getElementById('manage-api-presets-btn').addEventListener('click', () => {
+                renderApiPresets();
+                document.getElementById('api-preset-modal').classList.add('visible');
+            });
+            document.getElementById('close-api-preset-btn').addEventListener('click', () => {
+                document.getElementById('api-preset-modal').classList.remove('visible');
+            });
+            document.getElementById('save-as-api-preset-btn').addEventListener('click', async () => {
+                const proxyUrl = document.getElementById('proxy-url').value.trim();
+                const apiKey = document.getElementById('api-key').value.trim();
+                const model = document.getElementById('model-select').value;
+                
+                if (!proxyUrl || !apiKey) return showCustomAlert('残缺', '请先填写反代地址与密钥');
+                
+                const name = await showCustomPrompt('存为新法则', '请为这套法则预设命名');
+                if (name && name.trim()) {
+                    if (!state.apiConfig.presets) state.apiConfig.presets = [];
+                    state.apiConfig.presets.push({
+                        id: 'api_preset_' + Date.now(),
+                        name: name.trim(),
+                        proxyUrl: proxyUrl,
+                        apiKey: apiKey,
+                        model: model
+                    });
+                    
+                    state.apiConfig.proxyUrl = proxyUrl;
+                    state.apiConfig.apiKey = apiKey;
+                    state.apiConfig.model = model;
+                    await db.apiConfig.put(state.apiConfig);
+                    
+                    await showCustomAlert('明悟', `【${name.trim()}】已收录并生效`);
+                }
             });
 
             // --- 幻境绘卷 (壁纸 与 全局CSS) ---
