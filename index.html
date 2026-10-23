@@ -11,7 +11,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="浮生入梦">
     <link rel="apple-touch-icon" href="https://i.postimg.cc/sftBGdw2/1778555381427.png">
-    <!-- 安卓 Chrome 状态栏颜色 -->
     <meta name="theme-color" content="#ffffff">
 
     <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.2/dist/dexie.min.js"></script>
@@ -70,7 +69,7 @@
         .message-wrapper { display: flex; flex-direction: column; position: relative; margin-bottom: 22px; max-width: 85%; }
         .message-wrapper.ai { align-self: flex-start; align-items: flex-start; }
         .message-wrapper.user { align-self: flex-end; align-items: flex-end; }
-        .message-bubble { display: flex; align-items: flex-start; gap: 12px; max-width: 100%; }
+        .message-bubble { display: flex; align-items: flex-start; gap: 12px; max-width: 100%; position: relative; }
         .message-bubble.user { flex-direction: row-reverse; }
         
         /* 包含头像和名字的垂直容器 */
@@ -194,6 +193,7 @@
                 <span class="back-btn" id="back-to-list-btn">‹</span>
                 <span id="chat-header-title">剧情演绎</span>
                 <div class="header-actions">
+                    <span class="action-btn" id="memory-lib-btn" title="记忆识海">❖</span>
                     <span class="action-btn" id="chat-settings-btn" title="命格推演">☰</span>
                 </div>
             </div>
@@ -238,6 +238,16 @@
                 <div class="form-group"><label>天道信物 (API Key)</label><input type="password" id="api-key" placeholder="sk-..."></div>
                 <div class="form-group"><label>灵智化身 (模型)</label><select id="model-select"></select></div>
                 <button class="form-button" id="fetch-models-btn">感知天地化身</button>
+                
+                <hr style="margin:25px 0; opacity:.15;">
+                
+                <!-- 专属总结API配置 -->
+                <h4 style="margin: 0 0 15px 0; color: var(--text-primary); font-size: 15px;">专属总结灵枢 (可选，留空则默认用上方)</h4>
+                <div class="form-group"><label>总结反代地址</label><input type="text" id="summary-proxy-url" placeholder="例如: https://api.openai.com"></div>
+                <div class="form-group"><label>总结天道信物 (API Key)</label><input type="password" id="summary-api-key" placeholder="sk-..."></div>
+                <div class="form-group"><label>总结灵智化身 (模型)</label><select id="summary-model"></select></div>
+                <button class="form-button" id="fetch-summary-models-btn">感知总结化身</button>
+                
                 <hr style="margin:25px 0; opacity:.15;">
                 <div style="display: flex; gap: 12px;">
                     <button class="form-button" id="save-api-settings-btn" style="margin-top:0;">铭刻法则</button>
@@ -307,11 +317,48 @@
                 <div class="form-group"><label>吾之容貌 (我的头像)</label><div class="avatar-upload"><img id="my-avatar-preview"><button onclick="document.getElementById('my-avatar-input').click()">描绘容颜</button><button id="open-persona-library-btn" style="margin-left:auto;">身世库</button><input type="file" id="my-avatar-input" accept="image/*"></div></div>
                 <div class="form-group"><label>吾之宿命 (我的设定)</label><textarea id="my-persona" rows="4" placeholder="初入江湖的剑修，纵横肆意，意气飞扬。凭掌中三尺寒霜问鼎天下大道，纵横四海只求一败，誓要用这手中长剑，斩尽世间一切不平事..."></textarea></div>
                 <div class="form-group"><label>引灵入卷 (关联万象录)</label><div id="world-book-checkboxes-container" style="background:#fff; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); max-height: 120px; overflow-y:auto;"></div></div>
+                
                 <div class="form-group"><label>神识广度 (记忆条数)</label><input type="number" id="max-memory" value="15"></div>
+                
+                <div class="form-group" style="background: #fff; border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <label style="margin-bottom: 12px; border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 15px;">凝魄留影 (自动归纳记忆)</label>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label class="switch">
+                                <input type="checkbox" id="auto-summarize-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span style="font-size: 14px; color: var(--text-primary); font-weight: 600;">启用</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 14px; color: var(--text-secondary);">每</span>
+                            <input type="number" id="auto-summary-interval" value="50" style="width: 55px; padding: 6px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center; outline: none; background: #fafafa;">
+                            <span style="font-size: 14px; color: var(--text-secondary);">楼</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group"><label>此方洞天 (聊天背景)</label><div class="avatar-upload"><button onclick="document.getElementById('bg-input').click()">布下幻景</button><button id="remove-bg-btn" style="display:none; color:#ff4d4f; border-color:#ff4d4f;">破除</button><input type="file" id="bg-input" accept="image/*" hidden></div><img id="bg-preview" style="max-width: 100px; max-height: 100px; margin-top: 15px; display: none; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"></div>
-                <hr style="margin: 30px 0 20px 0; border: none; border-top: 1px solid #eee;"><button class="form-button form-button-secondary" id="clear-chat-btn" style="color: #ff4d4f; border-color: #ff4d4f;">斩断红尘 (清空记录)</button>
+                <hr style="margin: 30px 0 20px 0; border: none; border-top: 1px solid #eee;"><button class="form-button form-button-secondary" id="clear-chat-btn" style="color: #ff4d4f; border-color: #ff4d4f;">斩断红尘 (清空所有记录与记忆)</button>
             </div>
             <div class="modal-footer"><button class="cancel" id="cancel-chat-settings-btn">放弃</button><button class="save" id="save-chat-settings-btn">凝铸命格</button></div>
+        </div>
+    </div>
+
+    <!-- 记忆库 (识海) Modal -->
+    <div id="memory-library-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>记忆识海</span>
+                <div style="display: flex; gap: 12px;">
+                    <button id="global-summarize-btn" style="background:none; border:none; color:var(--accent-color); font-weight:bold; font-size:15px; cursor: pointer;">全录总结</button>
+                    <button id="add-memory-btn" style="background:none; border:none; color:var(--accent-color); font-weight:bold; font-size:15px; cursor: pointer;">添忆</button>
+                </div>
+            </div>
+            <div class="modal-body" style="background: #eef2f1; padding: 0;">
+                <div id="memory-list-container" class="list-container"></div>
+            </div>
+            <div class="modal-footer"><button class="cancel" id="close-memory-library-btn" style="width:100%;">合卷</button></div>
         </div>
     </div>
 
@@ -418,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingWorldBookId = null;
     let editingPersonaPresetId = null;
     let activeMessageTimestamp = null;
-    let currentChatDisplayLimit = 50; // 控制聊天记录展现的数量
+    let currentChatDisplayLimit = 50; 
     
     let modalResolve;
     const modalOverlay = document.getElementById('custom-modal-overlay');
@@ -500,10 +547,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('main-date').textContent = `${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}`;
     }
 
-    // 更新：用于解析同时包含内容和心声的JSON对象
     function parseAiResponse(rawContent) {
         let text = rawContent.trim();
-        // 清理可能存在的 Markdown 代码块包裹
         if (text.startsWith('```')) {
             text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
         }
@@ -515,14 +560,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     innerThought: parsed.inner_thought || ''
                 };
             } else if (Array.isArray(parsed)) {
-                // 兼容旧版数组格式
                 return { content: parsed.join('\n\n'), innerThought: '' };
             }
         } catch (e) {
             console.warn("JSON解析失败，尝试直接回退", e);
         }
-        // 解析失败直接作为文本返回
         return { content: text, innerThought: '' };
+    }
+
+    function getSummaryApiConfig() {
+        const pUrl = (state.apiConfig.summaryProxyUrl || state.apiConfig.proxyUrl || '').replace(/\/v1\/?$/, '').trim();
+        const aKey = (state.apiConfig.summaryApiKey || state.apiConfig.apiKey || '').trim();
+        const mod  = (state.apiConfig.summaryModel || state.apiConfig.model || '').trim();
+        return { proxyUrl: pUrl, apiKey: aKey, model: mod };
     }
 
     // ==========================================================
@@ -547,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================================
-    // AI 剧情生成逻辑
+    // AI 剧情生成逻辑 与 自动记忆总结
     // ==========================================================
     async function triggerAiResponse() {
         if (!state.activeChatId) return;
@@ -568,13 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
             const recentTextForKeywordSearch = historySlice.map(msg => msg.content).join('\n');
             const activeEntries =[];
-
             chat.settings.linkedWorldBookIds.forEach(bookId => {
                 const worldBook = state.worldBooks.find(wb => wb.id === bookId);
                 if (worldBook && worldBook.entries) {
                     worldBook.entries.forEach(entry => {
                         if (!entry.enabled || !entry.content) return; 
-                        
                         let shouldInclude = false;
                         if (!entry.keywords) {
                             shouldInclude = true;
@@ -582,23 +630,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             const keywordsArray = entry.keywords.split(',').map(k => k.trim()).filter(k => k);
                             shouldInclude = keywordsArray.some(kw => recentTextForKeywordSearch.includes(kw));
                         }
-
-                        if (shouldInclude) {
-                            activeEntries.push(`[${entry.note || '设定残卷'}]: ${entry.content}`);
-                        }
+                        if (shouldInclude) activeEntries.push(`[${entry.note || '设定残卷'}]: ${entry.content}`);
                     });
                 }
             });
-
-            if (activeEntries.length > 0) {
-                worldBookContent = `\n\n## 天道卷宗 (核心背景设定)\n${activeEntries.join('\n\n')}\n`;
-            }
+            if (activeEntries.length > 0) worldBookContent = `\n\n## 天道卷宗 (核心背景设定)\n${activeEntries.join('\n\n')}\n`;
         }
 
-        // 修改 Prompt，要求生成心声并输出指定的 JSON 对象格式
+        let memoryContent = '';
+        if (chat.summaries && chat.summaries.length > 0) {
+            const memTexts = chat.summaries.map(s => `[${s.title}]: ${s.content}`).join('\n\n');
+            memoryContent = `\n\n## 往昔记忆 (历史剧情提要)\n${memTexts}\n`;
+        }
+
         const systemPrompt = `你现在身处一个古风文字剧情世界中，扮演名为"${chat.name}"的角色，与用户进行沉浸式的剧情演绎。
 
-# 剧情设定信息${worldBookContent}
+# 剧情设定与前情信息${worldBookContent}${memoryContent}
 
 # 你的角色设定：
 ${chat.settings.aiPersona}
@@ -621,7 +668,6 @@ ${chat.settings.aiPersona}
 
 请沉浸在角色中，根据下面的剧情发展历史，继续演绎。`;
         
-        // 此处的 map 只提取了 content，因此自带的心声(innerThought)不会被发送给 API，完美实现“不加入记忆”
         const messagesPayload = historySlice.map(msg => ({ role: msg.role, content: msg.content }));
 
         try {
@@ -633,7 +679,6 @@ ${chat.settings.aiPersona}
             if (!response.ok) throw new Error(`天机蒙蔽: ${response.status}`);
             const data = await response.json();
             
-            // 解析包含心声的 JSON
             const parsedData = parseAiResponse(data.choices[0].message.content); 
             const fullContent = parsedData.content; 
             const innerThought = parsedData.innerThought;
@@ -642,18 +687,23 @@ ${chat.settings.aiPersona}
                 const aiMessage = { 
                     role: 'assistant', 
                     content: String(fullContent), 
-                    innerThought: innerThought ? String(innerThought) : undefined, // 保存心声
+                    innerThought: innerThought ? String(innerThought) : undefined,
                     timestamp: Date.now() 
                 }; 
                 chat.history.push(aiMessage); 
                 await db.chats.put(chat); 
-                if (state.activeChatId === chat.id) appendMessage(aiMessage, chat); 
+                
+                const globalIndex = chat.history.length - 1;
+                if (state.activeChatId === chat.id) appendMessage(aiMessage, chat, globalIndex); 
+
+                await checkAndRunAutoSummary(chat.id);
             }
         } catch (error) {
             const errorMessage = { role: 'assistant', content: `[天道反噬，剧情推演失败: ${error.message}]`, timestamp: Date.now() };
             chat.history.push(errorMessage);
             await db.chats.put(chat);
-            appendMessage(errorMessage, chat);
+            const globalIndex = chat.history.length - 1;
+            if (state.activeChatId === chat.id) appendMessage(errorMessage, chat, globalIndex);
         } finally {
             document.getElementById('typing-indicator').style.display = 'none';
         }
@@ -675,6 +725,116 @@ ${chat.settings.aiPersona}
         }
         triggerAiResponse();
     }
+
+    async function checkAndRunAutoSummary(chatId) {
+        const chat = state.chats[chatId];
+        if (!chat || !chat.settings.autoSummarize) return;
+        
+        const count = chat.history.length;
+        const interval = parseInt(chat.settings.autoSummaryInterval) || 50;
+        
+        if (count >= interval && count % interval === 0) {
+            const summaryKey = `floor_${count}`;
+            chat.summaries = chat.summaries || [];
+            if (!chat.summaries.some(s => s.note === summaryKey)) {
+                await generateAutoSummary(chatId, count, interval);
+            }
+        }
+    }
+
+    async function generateAutoSummary(chatId, floorCount, interval) {
+        const chat = state.chats[chatId];
+        const { proxyUrl, apiKey, model } = getSummaryApiConfig();
+        if (!proxyUrl || !apiKey || !model) return;
+
+        console.log(`[识海留影] 正在凝练第 ${floorCount} 轮记忆...`);
+        const messagesToSummarize = chat.history.slice(-interval);
+        const textToSummarize = messagesToSummarize.map(m => `${m.role === 'user' ? (chat.settings.myName || '玩家') : chat.name}: ${m.content}`).join('\n\n');
+
+        const sysPrompt = "请作为一位客观的修仙世界剧情记录官，用100到200字，精炼总结以下这段剧情发展核心事件、以及双方情感关系的变化。要求：只保留最重要的主线信息，直接输出总结结果，绝对不要带任何前缀或修饰语。";
+
+        try {
+            const response = await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: textToSummarize }],
+                    temperature: 0.5,
+                    stream: false
+                })
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const summaryText = data.choices[0].message.content.trim();
+
+            if (summaryText) {
+                chat.summaries.push({
+                    id: 'mem_' + Date.now(),
+                    note: `floor_${floorCount}`,
+                    title: `第 ${floorCount - interval + 1} 楼 - ${floorCount} 楼 记忆片段`,
+                    content: summaryText
+                });
+                await db.chats.put(chat);
+                console.log(`[识海留影] 记忆凝练完成！`);
+                if (document.getElementById('memory-library-modal').classList.contains('visible')) {
+                    renderMemoryLibrary();
+                }
+            }
+        } catch(e) { console.error("生成记忆失败", e); }
+    }
+
+    document.getElementById('global-summarize-btn').addEventListener('click', async () => {
+        if (!state.activeChatId) return;
+        const chat = state.chats[state.activeChatId];
+        
+        if (chat.history.length === 0) return showCustomAlert('虚无', '此界尚无任何因果，无法总结。');
+        
+        const confirmed = await showCustomConfirm('全录总结', '将阅尽你们之间的所有过往，浓缩为一份终极全局记忆，确定要凝练吗？');
+        if (!confirmed) return;
+
+        const { proxyUrl, apiKey, model } = getSummaryApiConfig();
+        if (!proxyUrl || !apiKey || !model) {
+            return showCustomAlert('残缺', '请先在天道法则中配置灵枢(或专属总结灵枢)。');
+        }
+
+        document.getElementById('memory-library-modal').classList.remove('visible');
+        await showCustomAlert('凝练中', '正在纵览全卷抽取因果，请耐心等待片刻...');
+
+        const textToSummarize = chat.history.map(m => `${m.role === 'user' ? (chat.settings.myName || '玩家') : chat.name}: ${m.content}`).join('\n\n');
+        const sysPrompt = "请作为一位客观的修仙世界剧情记录官，用300到500字，精炼总结以下所有剧情发展的核心脉络、重要转折以及双方情感关系的变化。要求：只保留最重要的主线信息，直接输出总结结果，绝对不要带任何前缀或修饰语。";
+
+        try {
+            const response = await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: textToSummarize }],
+                    temperature: 0.5,
+                    stream: false
+                })
+            });
+            if (!response.ok) throw new Error(`天道反噬 (HTTP ${response.status})`);
+            const data = await response.json();
+            const summaryText = data.choices[0].message.content.trim();
+
+            if (summaryText) {
+                chat.summaries = chat.summaries || [];
+                chat.summaries.push({
+                    id: 'mem_' + Date.now(),
+                    note: 'global_summary',
+                    title: `全局剧情总览 (共 ${chat.history.length} 楼)`,
+                    content: summaryText
+                });
+                await db.chats.put(chat);
+                renderMemoryLibrary();
+                document.getElementById('memory-library-modal').classList.add('visible');
+            }
+        } catch(e) {
+            showCustomAlert("凝练失败", e.message);
+        }
+    });
 
     // ==========================================================
     // 渲染函数集
@@ -713,7 +873,7 @@ ${chat.settings.aiPersona}
 
             item.addEventListener('click', () => { 
                 state.activeChatId = chat.id; 
-                currentChatDisplayLimit = 50; // 重置显示限制
+                currentChatDisplayLimit = 50; 
                 renderChatInterface(chat.id); 
                 window.showScreen('chat-interface-screen'); 
             });
@@ -736,7 +896,7 @@ ${chat.settings.aiPersona}
         return `${year}年${month}月${date}日 ${hours}:${minutes}`; 
     }
 
-    function createMessageElement(msg, chat) {
+    function createMessageElement(msg, chat, globalIndex) {
         const isUser = msg.role === 'user';
         const wrapper = document.createElement('div');
         wrapper.className = `message-wrapper ${isUser ? 'user' : 'ai'}`;
@@ -746,7 +906,6 @@ ${chat.settings.aiPersona}
         bubble.dataset.timestamp = msg.timestamp;
 
         const avatarSrc = isUser ? (chat.settings.myAvatar || defaultAvatar) : (chat.settings.aiAvatar || defaultAvatar);
-        // 读取专属的设定名字，如果没有就默认显示“我”
         const displayName = isUser ? (chat.settings.myName || "我") : chat.name;
         
         const contentHtml = String(msg.content || '').replace(/\n/g, '<br>');
@@ -765,14 +924,19 @@ ${chat.settings.aiPersona}
         
         wrapper.appendChild(bubble);
         wrapper.appendChild(timestampEl);
+        
+        if (globalIndex !== undefined) {
+            const floorEl = document.createElement('span');
+            floorEl.className = 'floor-num';
+            floorEl.style.cssText = "position: absolute; right: 25px; top: 18px; font-size: 13px; font-family: 'Huiwen-mincho', serif; font-weight: bold; color: rgba(136, 106, 96, 0.6); z-index: 20; letter-spacing: 1px; pointer-events: none;";
+            floorEl.textContent = `#${globalIndex + 1}`;
+            wrapper.appendChild(floorEl);
+        }
 
-        // 如果存在心声，给头像增加点击事件
         if (!isUser && msg.innerThought) {
             const avatarImg = bubble.querySelector('.avatar');
             avatarImg.style.cursor = 'pointer';
             avatarImg.title = '触碰探听心声';
-            
-            // 阻止冒泡，以免触发长按消息菜单
             const stopEvent = (e) => e.stopPropagation();
             avatarImg.addEventListener('mousedown', stopEvent);
             avatarImg.addEventListener('touchstart', stopEvent, { passive: true });
@@ -792,10 +956,10 @@ ${chat.settings.aiPersona}
         return wrapper;
     }
 
-    function appendMessage(msg, chat) {
+    function appendMessage(msg, chat, globalIndex) {
         const container = document.getElementById('chat-messages');
         const typing = document.getElementById('typing-indicator');
-        container.insertBefore(createMessageElement(msg, chat), typing);
+        container.insertBefore(createMessageElement(msg, chat, globalIndex), typing);
         container.scrollTop = container.scrollHeight;
     }
 
@@ -816,7 +980,6 @@ ${chat.settings.aiPersona}
 
         container.innerHTML = '';
         
-        // 分页/溯源功能
         if (chat.history.length > currentChatDisplayLimit) {
             const loadMoreBtn = document.createElement('div');
             loadMoreBtn.style.cssText = 'text-align:center; padding:10px; color:var(--accent-color); cursor:pointer; font-size: 13px; margin-bottom: 10px; text-decoration: underline; text-underline-offset: 4px;';
@@ -834,12 +997,15 @@ ${chat.settings.aiPersona}
         chatScreen.style.backgroundImage = chat.settings.background ? `url(${chat.settings.background})` : 'none';
         chatScreen.style.backgroundColor = chat.settings.background ? 'transparent' : '#eef2f1';
 
+        const historyLength = chat.history.length;
+        const startIndex = Math.max(0, historyLength - currentChatDisplayLimit);
         const messagesToShow = chat.history.slice(-currentChatDisplayLimit);
-        messagesToShow.forEach(msg => {
-            container.insertBefore(createMessageElement(msg, chat), typing);
+        
+        messagesToShow.forEach((msg, idx) => {
+            const globalIndex = startIndex + idx;
+            container.insertBefore(createMessageElement(msg, chat, globalIndex), typing);
         });
         
-        // 保持滑动位置，防止因为加载更多导致位置跳动
         if (maintainScroll) {
             container.scrollTop = oldScrollTop + (container.scrollHeight - oldScrollHeight);
         } else {
@@ -847,19 +1013,72 @@ ${chat.settings.aiPersona}
         }
     }
 
-    // --- API设置与预设管理 ---
+    function renderMemoryLibrary() {
+        const listEl = document.getElementById('memory-list-container');
+        listEl.innerHTML = '';
+        
+        if (!state.activeChatId) return;
+        const chat = state.chats[state.activeChatId];
+        
+        if (!chat.summaries || chat.summaries.length === 0) {
+            listEl.innerHTML = '<p style="text-align:center; color: #888; margin-top:40px;">识海空空，未留残影。<br><span style="font-size:12px;">（开启自动总结后，会自动产生记忆，也可手动添忆）</span></p>';
+            return;
+        }
+        
+        chat.summaries.forEach(mem => {
+            const item = document.createElement('div');
+            item.className = 'entry-card'; 
+            item.innerHTML = `
+                <div class="entry-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                    <span style="font-weight:bold; font-size:15px; color:var(--text-primary); letter-spacing: 1px;">◎ ${mem.title}</span>
+                    <span class="delete-memory-btn" style="color: #ff4d4f; font-size: 22px; cursor: pointer; line-height: 1;">×</span>
+                </div>
+                <div style="font-size:14px; color:var(--text-secondary); line-height:1.7; text-align: justify;">${mem.content}</div>
+            `;
+            
+            item.querySelector('.delete-memory-btn').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const confirmed = await showCustomConfirm('抹除记忆', '确定要彻底抹除这段记忆吗？', {confirmButtonClass: 'btn-danger'});
+                if(confirmed) {
+                    chat.summaries = chat.summaries.filter(m => m.id !== mem.id);
+                    await db.chats.put(chat);
+                    renderMemoryLibrary();
+                }
+            });
+            
+            item.addEventListener('click', async () => {
+                const newContent = await showCustomPrompt('纂改记忆', '在此修改记忆片段...', mem.content, 'textarea');
+                if (newContent !== null) {
+                    mem.content = newContent.trim();
+                    await db.chats.put(chat);
+                    renderMemoryLibrary();
+                }
+            });
+            listEl.appendChild(item);
+        });
+    }
+
     function renderApiSettings() {
         document.getElementById('proxy-url').value = state.apiConfig.proxyUrl || '';
         document.getElementById('api-key').value = state.apiConfig.apiKey || '';
         
-        const select = document.getElementById('model-select');
-        select.innerHTML = '';
+        document.getElementById('summary-proxy-url').value = state.apiConfig.summaryProxyUrl || '';
+        document.getElementById('summary-api-key').value = state.apiConfig.summaryApiKey || '';
+        
+        const mainSelect = document.getElementById('model-select');
+        mainSelect.innerHTML = '';
         if (state.apiConfig.model) {
             const option = document.createElement('option');
-            option.value = state.apiConfig.model;
-            option.textContent = state.apiConfig.model;
-            option.selected = true;
-            select.appendChild(option);
+            option.value = state.apiConfig.model; option.textContent = state.apiConfig.model; option.selected = true;
+            mainSelect.appendChild(option);
+        }
+        
+        const sumSelect = document.getElementById('summary-model');
+        sumSelect.innerHTML = '';
+        if (state.apiConfig.summaryModel) {
+            const option = document.createElement('option');
+            option.value = state.apiConfig.summaryModel; option.textContent = state.apiConfig.summaryModel; option.selected = true;
+            sumSelect.appendChild(option);
         }
     }
     
@@ -882,25 +1101,27 @@ ${chat.settings.aiPersona}
                 if(confirm) {
                     document.getElementById('proxy-url').value = preset.proxyUrl || '';
                     document.getElementById('api-key').value = preset.apiKey || '';
+                    document.getElementById('summary-proxy-url').value = preset.summaryProxyUrl || '';
+                    document.getElementById('summary-api-key').value = preset.summaryApiKey || '';
                     
                     const select = document.getElementById('model-select');
                     let exists = false;
-                    for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === preset.model) {
-                            exists = true; break;
-                        }
-                    }
-                    if (!exists && preset.model) {
-                        const option = document.createElement('option');
-                        option.value = preset.model;
-                        option.textContent = preset.model;
-                        select.appendChild(option);
-                    }
+                    for (let i = 0; i < select.options.length; i++) { if (select.options[i].value === preset.model) { exists = true; break; } }
+                    if (!exists && preset.model) { const option = document.createElement('option'); option.value = preset.model; option.textContent = preset.model; select.appendChild(option); }
                     select.value = preset.model || '';
+                    
+                    const sumSelect = document.getElementById('summary-model');
+                    let sumExists = false;
+                    for (let i = 0; i < sumSelect.options.length; i++) { if (sumSelect.options[i].value === preset.summaryModel) { sumExists = true; break; } }
+                    if (!sumExists && preset.summaryModel) { const option = document.createElement('option'); option.value = preset.summaryModel; option.textContent = preset.summaryModel; sumSelect.appendChild(option); }
+                    sumSelect.value = preset.summaryModel || '';
                     
                     state.apiConfig.proxyUrl = preset.proxyUrl || '';
                     state.apiConfig.apiKey = preset.apiKey || '';
                     state.apiConfig.model = preset.model || '';
+                    state.apiConfig.summaryProxyUrl = preset.summaryProxyUrl || '';
+                    state.apiConfig.summaryApiKey = preset.summaryApiKey || '';
+                    state.apiConfig.summaryModel = preset.summaryModel || '';
                     await db.apiConfig.put(state.apiConfig);
                     
                     document.getElementById('api-preset-modal').classList.remove('visible');
@@ -942,7 +1163,6 @@ ${chat.settings.aiPersona}
         else if (bg) { preview.style.backgroundImage = bg; preview.textContent = '当前为纯色/渐变'; }
     }
 
-    // --- 渲染 CSS 预设列表 ---
     function renderCssPresets() {
         const listEl = document.getElementById('css-preset-list');
         listEl.innerHTML = '';
@@ -1057,11 +1277,10 @@ ${chat.settings.aiPersona}
             item.className = 'persona-preset-item';
             item.style.backgroundImage = `url(${preset.avatar})`;
             
-            // 点击应用人设（头像、设定、名字）
             item.addEventListener('click', () => { 
                 document.getElementById('my-avatar-preview').src = preset.avatar; 
                 document.getElementById('my-persona').value = preset.persona; 
-                document.getElementById('my-name-input').value = preset.myName || '我'; // 导入名字
+                document.getElementById('my-name-input').value = preset.myName || '我'; 
                 document.getElementById('persona-library-modal').classList.remove('visible'); 
             });
             
@@ -1084,8 +1303,7 @@ ${chat.settings.aiPersona}
             ]);
             state.chats = chatsArr.reduce((acc, chat) => { acc[chat.id] = chat; return acc; }, {});
             
-            // API 设定状态与默认值
-            state.apiConfig = apiConf || { id: 'main', proxyUrl: '', apiKey: '', model: '', presets: [] };
+            state.apiConfig = apiConf || { id: 'main', proxyUrl: '', apiKey: '', model: '', summaryProxyUrl: '', summaryApiKey: '', summaryModel: '', presets: [] };
             if (!state.apiConfig.presets) state.apiConfig.presets = [];
             
             state.globalSettings = glob || { id: 'main', wallpaper: '', fontUrl: '', globalCss: '', cssPresets:[] };
@@ -1111,14 +1329,17 @@ ${chat.settings.aiPersona}
                         settings: { 
                             aiPersona: '一位高深莫测的前辈...', 
                             myPersona: '初入江湖的少侠...', 
-                            myName: '我', // 默认名字
+                            myName: '我', 
                             maxMemory: 15, 
+                            autoSummarize: false,
+                            autoSummaryInterval: 50,
                             aiAvatar: defaultAvatar, 
                             myAvatar: defaultAvatar, 
                             background: '', 
                             linkedWorldBookIds:[] 
                         }, 
-                        history:[] 
+                        history:[],
+                        summaries:[] 
                     };
                     state.chats[newChat.id] = newChat; await db.chats.put(newChat); renderChatList();
                 }
@@ -1133,8 +1354,14 @@ ${chat.settings.aiPersona}
                 const chat = state.chats[state.activeChatId];
                 const msg = { role: 'user', content, timestamp: Date.now() };
                 chat.history.push(msg); await db.chats.put(chat);
-                appendMessage(msg, chat); renderChatList();
+                
+                const globalIndex = chat.history.length - 1;
+                appendMessage(msg, chat, globalIndex); 
+                renderChatList();
+                
                 chatInput.value = ''; chatInput.style.height = 'auto'; chatInput.focus();
+                
+                await checkAndRunAutoSummary(chat.id);
             });
             chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send-btn').click(); } });
             chatInput.addEventListener('input', () => { chatInput.style.height = 'auto'; chatInput.style.height = (chatInput.scrollHeight) + 'px'; });
@@ -1146,6 +1373,31 @@ ${chat.settings.aiPersona}
                 regenerateResponse();
             });
 
+            // --- 记忆识海 (过往总结) 弹窗逻辑 ---
+            document.getElementById('memory-lib-btn').addEventListener('click', () => {
+                if (!state.activeChatId) return;
+                renderMemoryLibrary();
+                document.getElementById('memory-library-modal').classList.add('visible');
+            });
+            document.getElementById('close-memory-library-btn').addEventListener('click', () => document.getElementById('memory-library-modal').classList.remove('visible'));
+            
+            document.getElementById('add-memory-btn').addEventListener('click', async () => {
+                if (!state.activeChatId) return;
+                const chat = state.chats[state.activeChatId];
+                const content = await showCustomPrompt('手动添忆', '请为这方天地手动撰写一段重要记忆...', '', 'textarea');
+                if (content && content.trim()) {
+                    chat.summaries = chat.summaries || [];
+                    chat.summaries.push({
+                        id: 'mem_' + Date.now(),
+                        note: 'manual',
+                        title: '自撰残影',
+                        content: content.trim()
+                    });
+                    await db.chats.put(chat);
+                    renderMemoryLibrary();
+                }
+            });
+
             // --- 角色设定 (命格推演) ---
             document.getElementById('chat-settings-btn').addEventListener('click', () => {
                 if (!state.activeChatId) return;
@@ -1154,10 +1406,13 @@ ${chat.settings.aiPersona}
                 document.getElementById('ai-persona').value = chat.settings.aiPersona;
                 document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
                 
-                document.getElementById('my-name-input').value = chat.settings.myName || '我'; // 读取名字
+                document.getElementById('my-name-input').value = chat.settings.myName || '我'; 
                 document.getElementById('my-persona').value = chat.settings.myPersona;
                 document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || defaultAvatar;
                 document.getElementById('max-memory').value = chat.settings.maxMemory;
+                
+                document.getElementById('auto-summarize-toggle').checked = chat.settings.autoSummarize || false;
+                document.getElementById('auto-summary-interval').value = chat.settings.autoSummaryInterval || 50;
                 
                 const bgPreview = document.getElementById('bg-preview');
                 const removeBgBtn = document.getElementById('remove-bg-btn');
@@ -1183,11 +1438,14 @@ ${chat.settings.aiPersona}
                 chat.settings.aiPersona = document.getElementById('ai-persona').value;
                 chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
                 
-                chat.settings.myName = document.getElementById('my-name-input').value.trim() || '我'; // 保存名字
+                chat.settings.myName = document.getElementById('my-name-input').value.trim() || '我'; 
                 chat.settings.myPersona = document.getElementById('my-persona').value;
                 chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
                 
                 chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 15;
+                chat.settings.autoSummarize = document.getElementById('auto-summarize-toggle').checked;
+                chat.settings.autoSummaryInterval = parseInt(document.getElementById('auto-summary-interval').value) || 50;
+                
                 const checkedBooks = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
                 chat.settings.linkedWorldBookIds = Array.from(checkedBooks).map(cb => cb.value);
                 await db.chats.put(chat);
@@ -1196,8 +1454,14 @@ ${chat.settings.aiPersona}
             });
             document.getElementById('clear-chat-btn').addEventListener('click', async () => {
                 if (!state.activeChatId) return;
-                const confirmed = await showCustomConfirm('斩断红尘', '此举将磨灭与该角色的所有过去，确定吗？', { confirmButtonClass: 'btn-danger' });
-                if (confirmed) { state.chats[state.activeChatId].history =[]; await db.chats.put(state.chats[state.activeChatId]); renderChatInterface(state.activeChatId); document.getElementById('chat-settings-modal').classList.remove('visible'); }
+                const confirmed = await showCustomConfirm('斩断红尘', '此举将磨灭与该角色的所有过去，连同记忆识海一起销毁，确定吗？', { confirmButtonClass: 'btn-danger' });
+                if (confirmed) { 
+                    state.chats[state.activeChatId].history = []; 
+                    state.chats[state.activeChatId].summaries = []; 
+                    await db.chats.put(state.chats[state.activeChatId]); 
+                    renderChatInterface(state.activeChatId); 
+                    document.getElementById('chat-settings-modal').classList.remove('visible'); 
+                }
             });
 
             // --- 消息长按菜单 ---
@@ -1289,21 +1553,19 @@ ${chat.settings.aiPersona}
             document.getElementById('open-persona-library-btn').addEventListener('click', () => { renderPersonaLibrary(); document.getElementById('persona-library-modal').classList.add('visible'); });
             document.getElementById('close-persona-library-btn').addEventListener('click', () => document.getElementById('persona-library-modal').classList.remove('visible'));
             
-            // 新建身世
             document.getElementById('add-persona-preset-btn').addEventListener('click', () => { 
                 editingPersonaPresetId = null; 
                 document.getElementById('persona-editor-title').textContent = '凝练新魂'; 
                 document.getElementById('preset-avatar-preview').src = defaultAvatar; 
-                document.getElementById('preset-name-input').value = ''; // 清空名字
+                document.getElementById('preset-name-input').value = ''; 
                 document.getElementById('preset-persona-input').value = ''; 
                 document.getElementById('persona-editor-modal').classList.add('visible'); 
             });
             document.getElementById('cancel-persona-editor-btn').addEventListener('click', () => document.getElementById('persona-editor-modal').classList.remove('visible'));
             
-            // 保存身世
             document.getElementById('save-persona-preset-btn').addEventListener('click', async () => {
                 const avatar = document.getElementById('preset-avatar-preview').src; 
-                const myName = document.getElementById('preset-name-input').value.trim() || '我'; // 名字
+                const myName = document.getElementById('preset-name-input').value.trim() || '我'; 
                 const persona = document.getElementById('preset-persona-input').value.trim();
                 
                 if (editingPersonaPresetId) { 
@@ -1323,12 +1585,11 @@ ${chat.settings.aiPersona}
             
             document.getElementById('preset-action-cancel').addEventListener('click', () => { document.getElementById('preset-actions-modal').classList.remove('visible'); editingPersonaPresetId = null; });
             
-            // 编辑身世
             document.getElementById('preset-action-edit').addEventListener('click', () => {
                 const preset = state.personaPresets.find(p => p.id === editingPersonaPresetId); if (!preset) return;
                 document.getElementById('persona-editor-title').textContent = '修改命理'; 
                 document.getElementById('preset-avatar-preview').src = preset.avatar; 
-                document.getElementById('preset-name-input').value = preset.myName || '我'; // 加载名字
+                document.getElementById('preset-name-input').value = preset.myName || '我'; 
                 document.getElementById('preset-persona-input').value = preset.persona;
                 document.getElementById('preset-actions-modal').classList.remove('visible'); document.getElementById('persona-editor-modal').classList.add('visible');
             });
@@ -1338,13 +1599,19 @@ ${chat.settings.aiPersona}
 
             // --- 系统设置 (API) 及预设 ---
             document.getElementById('save-api-settings-btn').addEventListener('click', async () => {
-                state.apiConfig.proxyUrl = document.getElementById('proxy-url').value.trim();
+                state.apiConfig.proxyUrl = document.getElementById('proxy-url').value.replace(/\/v1\/?$/, '').trim(); 
                 state.apiConfig.apiKey = document.getElementById('api-key').value.trim();
                 state.apiConfig.model = document.getElementById('model-select').value;
+                
+                state.apiConfig.summaryProxyUrl = document.getElementById('summary-proxy-url').value.replace(/\/v1\/?$/, '').trim();
+                state.apiConfig.summaryApiKey = document.getElementById('summary-api-key').value.trim();
+                state.apiConfig.summaryModel = document.getElementById('summary-model').value.trim();
+                
                 await db.apiConfig.put(state.apiConfig); await showCustomAlert('明悟', '天道法则已铭刻于心');
             });
             document.getElementById('fetch-models-btn').addEventListener('click', async () => {
-                const url = document.getElementById('proxy-url').value.trim(); const key = document.getElementById('api-key').value.trim();
+                const url = document.getElementById('proxy-url').value.replace(/\/v1\/?$/, '').trim(); 
+                const key = document.getElementById('api-key').value.trim();
                 if (!url || !key) return await showCustomAlert('残缺', '请先寻得反代地址与密钥');
                 try {
                     const response = await fetch(`${url}/v1/models`, { headers: { 'Authorization': `Bearer ${key}` } });
@@ -1353,8 +1620,19 @@ ${chat.settings.aiPersona}
                     await showCustomAlert('大善', '已成功感知天地间的化身');
                 } catch (error) { await showCustomAlert('蒙蔽', `感知失败: ${error.message}`); }
             });
+            
+            document.getElementById('fetch-summary-models-btn').addEventListener('click', async () => {
+                const url = document.getElementById('summary-proxy-url').value.replace(/\/v1\/?$/, '').trim(); 
+                const key = document.getElementById('summary-api-key').value.trim();
+                if (!url || !key) return await showCustomAlert('残缺', '请先寻得总结反代地址与密钥');
+                try {
+                    const response = await fetch(`${url}/v1/models`, { headers: { 'Authorization': `Bearer ${key}` } });
+                    const data = await response.json(); const select = document.getElementById('summary-model'); select.innerHTML = '';
+                    data.data.forEach(model => { const option = document.createElement('option'); option.value = model.id; option.textContent = model.id; if(model.id === state.apiConfig.summaryModel) option.selected = true; select.appendChild(option); });
+                    await showCustomAlert('大善', '已成功感知总结用的化身');
+                } catch (error) { await showCustomAlert('蒙蔽', `感知失败: ${error.message}`); }
+            });
 
-            // API 预设管理事件
             document.getElementById('manage-api-presets-btn').addEventListener('click', () => {
                 renderApiPresets();
                 document.getElementById('api-preset-modal').classList.add('visible');
@@ -1363,28 +1641,29 @@ ${chat.settings.aiPersona}
                 document.getElementById('api-preset-modal').classList.remove('visible');
             });
             document.getElementById('save-as-api-preset-btn').addEventListener('click', async () => {
-                const proxyUrl = document.getElementById('proxy-url').value.trim();
+                const proxyUrl = document.getElementById('proxy-url').value.replace(/\/v1\/?$/, '').trim();
                 const apiKey = document.getElementById('api-key').value.trim();
                 const model = document.getElementById('model-select').value;
                 
-                if (!proxyUrl || !apiKey) return showCustomAlert('残缺', '请先填写反代地址与密钥');
+                const summaryProxyUrl = document.getElementById('summary-proxy-url').value.replace(/\/v1\/?$/, '').trim();
+                const summaryApiKey = document.getElementById('summary-api-key').value.trim();
+                const summaryModel = document.getElementById('summary-model').value.trim();
+                
+                if (!proxyUrl || !apiKey) return showCustomAlert('残缺', '请先填写主反代地址与密钥');
                 
                 const name = await showCustomPrompt('存为新法则', '请为这套法则预设命名');
                 if (name && name.trim()) {
                     if (!state.apiConfig.presets) state.apiConfig.presets = [];
-                    state.apiConfig.presets.push({
-                        id: 'api_preset_' + Date.now(),
-                        name: name.trim(),
-                        proxyUrl: proxyUrl,
-                        apiKey: apiKey,
-                        model: model
-                    });
+                    state.apiConfig.presets.push({ id: 'api_preset_' + Date.now(), name: name.trim(), proxyUrl, apiKey, model, summaryProxyUrl, summaryApiKey, summaryModel });
                     
-                    state.apiConfig.proxyUrl = proxyUrl;
-                    state.apiConfig.apiKey = apiKey;
+                    state.apiConfig.proxyUrl = proxyUrl; 
+                    state.apiConfig.apiKey = apiKey; 
                     state.apiConfig.model = model;
-                    await db.apiConfig.put(state.apiConfig);
+                    state.apiConfig.summaryProxyUrl = summaryProxyUrl; 
+                    state.apiConfig.summaryApiKey = summaryApiKey; 
+                    state.apiConfig.summaryModel = summaryModel;
                     
+                    await db.apiConfig.put(state.apiConfig);
                     await showCustomAlert('明悟', `【${name.trim()}】已收录并生效`);
                 }
             });
@@ -1401,14 +1680,11 @@ ${chat.settings.aiPersona}
                 else await showCustomAlert('无物', '请先展开一张绘卷');
             });
             
-            // 全局 CSS 预设管理事件
             document.getElementById('manage-css-presets-btn').addEventListener('click', () => {
                 renderCssPresets();
                 document.getElementById('css-preset-modal').classList.add('visible');
             });
-            document.getElementById('close-css-preset-btn').addEventListener('click', () => {
-                document.getElementById('css-preset-modal').classList.remove('visible');
-            });
+            document.getElementById('close-css-preset-btn').addEventListener('click', () => document.getElementById('css-preset-modal').classList.remove('visible'));
 
             document.getElementById('save-as-preset-btn').addEventListener('click', async () => {
                 const cssText = document.getElementById('global-css-input').value.trim();
@@ -1417,37 +1693,24 @@ ${chat.settings.aiPersona}
                 const name = await showCustomPrompt('存为新卷', '请为这段天地脉络(CSS预设)命名');
                 if (name && name.trim()) {
                     if (!state.globalSettings.cssPresets) state.globalSettings.cssPresets =[];
-                    state.globalSettings.cssPresets.push({
-                        id: 'css_' + Date.now(),
-                        name: name.trim(),
-                        css: cssText
-                    });
-                    
-                    applyGlobalCss(cssText);
-                    state.globalSettings.globalCss = cssText;
+                    state.globalSettings.cssPresets.push({ id: 'css_' + Date.now(), name: name.trim(), css: cssText });
+                    applyGlobalCss(cssText); state.globalSettings.globalCss = cssText;
                     await db.globalSettings.put(state.globalSettings);
-                    
                     await showCustomAlert('明悟', `【${name.trim()}】已收录，并已布施于天地`);
                 }
             });
 
             document.getElementById('save-global-css-btn').addEventListener('click', async () => {
                 const cssText = document.getElementById('global-css-input').value.trim();
-                applyGlobalCss(cssText);
-                state.globalSettings.globalCss = cssText;
-                await db.globalSettings.put(state.globalSettings);
-                await showCustomAlert('明悟', '当前脉络已生效');
+                applyGlobalCss(cssText); state.globalSettings.globalCss = cssText;
+                await db.globalSettings.put(state.globalSettings); await showCustomAlert('明悟', '当前脉络已生效');
             });
             
-            // 加入二次确认的清除功能
             document.getElementById('reset-global-css-btn').addEventListener('click', async () => {
                 const confirmed = await showCustomConfirm('散去灵力', '确定要清除所有全局自定义CSS吗？此操作不可逆！', { confirmButtonClass: 'btn-danger' });
                 if (confirmed) {
-                    document.getElementById('global-css-input').value = '';
-                    applyGlobalCss('');
-                    state.globalSettings.globalCss = '';
-                    await db.globalSettings.put(state.globalSettings);
-                    await showCustomAlert('化凡', '灵力已散去 (全局CSS已清除)');
+                    document.getElementById('global-css-input').value = ''; applyGlobalCss(''); state.globalSettings.globalCss = '';
+                    await db.globalSettings.put(state.globalSettings); await showCustomAlert('化凡', '灵力已散去 (全局CSS已清除)');
                 }
             });
 
